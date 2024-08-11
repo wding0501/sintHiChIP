@@ -1,0 +1,237 @@
+---
+title: "sintHiChIP"
+author: "Weiyue Ding"
+affiliation: "Harbin institute of technology"
+email: "wyding0501@hotmail.com"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sintHiChIP}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+sintHiChIP is a comprehensive R package designed for the analysis of HiChIP data, offering both local and global modes of operation. By correcting the bias of restriction enzyme cut site density, sintHiChIP facilitates the identification and characterization of significant chromatin interactions from HiChIP experiments.
+
+## Prerequisites
+
+Before installing and using sintHiChIP, ensure you have the following software and R packages installed. Pay special attention to the requirements for local mode.
+
+### Required Software
+
+1. R (version 4.0.0 or higher)
+2. Python (version 3.6 or higher)
+
+### For Local Mode:
+
+3. hichipper (version 0.7.7 or higher)
+   - Used for peak calling and interaction identification in local mode
+   - Installation: `pip install hichipper`
+
+4. bedtools (version 2.29.0 or higher)
+   - Used for genomic interval manipulations
+   - Installation: `sudo apt-get install bedtools` (Ubuntu/Debian) or `brew install bedtools` (MacOS with Homebrew)
+
+5. tabix (usually comes with samtools, version 1.10 or higher)
+   - Used for indexing and querying TAB-delimited genome position files
+   - Installation: `sudo apt-get install tabix` (Ubuntu/Debian) or `brew install tabix` (MacOS with Homebrew)
+
+6. bgzip (usually comes with samtools, version 1.10 or higher)
+   - Used for blocking compression of genomic data files
+   - Installation: Comes with tabix
+
+### Input Data Requirements
+
+sintHiChIP requires pre-processed HiChIP data. This data should be in a format compatible with the tool, typically including:
+
+1. For Local Mode:
+   - Aligned and filtered read pairs output folder (often the output of tools like HiC-Pro or similar pipelines)
+   - Peak files (if not using hichipper for peak calling)
+   - Restriction fragment information
+
+2. For Global Mode:
+   - Valid pairs file
+   - Chromosome size file
+   - Peak file
+
+Note: While sintHiChIP does not require HiC-Pro to be installed, it does expect input data in a format similar to HiC-Pro output. Users should ensure their data is properly formatted regardless of the preprocessing pipeline used.
+
+### Required R Packages
+
+You can install Bioconductor and the required R packages with:
+
+```r
+# Ensure BiocManager is installed
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+# Install Bioconductor packages if not already installed
+bioc_pkgs <- c("GenomicRanges", "IRanges", "S4Vectors", "GenomeInfoDb")
+BiocManager::install(bioc_pkgs[!bioc_pkgs %in% installed.packages()[,"Package"]])
+
+# Install CRAN packages if not already installed
+cran_pkgs <- c("data.table", "dplyr", "readr", "yaml", "Rcpp", "matrixStats", "testthat", "knitr", "rmarkdown")
+install.packages(cran_pkgs[!cran_pkgs %in% installed.packages()[,"Package"]])
+
+
+# Install Bioconductor packages
+BiocManager::install(c(
+    "GenomicRanges",   # Package for handling genomic ranges
+    "IRanges",         # Package for interval and range operations
+    "S4Vectors",       # Package for S4 vectors and data structures
+    "GenomeInfoDb"     # Package for genome annotation data
+))
+
+# Install CRAN packages
+install.packages(c(
+    "data.table",      # Package for fast data manipulation
+    "dplyr",           # Package for data manipulation
+    "readr",           # Package for reading data
+    "yaml",            # Package for working with YAML files
+    "Rcpp",            # Package for integrating C++ with R
+    "matrixStats",     # Package for matrix statistics
+    "testthat",        # Package for unit testing (Suggested)
+    "knitr",           # Package for dynamic report generation (Suggested)
+    "rmarkdown"        # Package for dynamic document generation (Suggested)
+))
+
+```
+
+## Installation
+
+You can install sintHiChIP directly from GitHub using the devtools package:
+```
+if (!requireNamespace("devtools", quietly = TRUE))
+    install.packages("devtools")
+
+devtools::install_github("wyding0501/sintHiChIP")
+```
+## Usage
+
+sintHiChIP can be run in two modes: local and global. Each mode has its specific parameters and use cases.
+
+## Local Mode
+
+Local mode is designed for analyzing specific regions of interest (Peak-to-Peak). It uses either hichipper for peak calling (defallt "EACH, ALL"), or the input ChIP-seq or HiChIP peaks to identify local interaction.
+
+```r
+library(sintHiChIP)
+
+run_sintHiChIP(
+  mode = "local",
+  outdir = "P2P",
+  yaml = "config.yaml",
+  peaks = "EACH,ALL",
+  resfrags = "path/to/restriction_fragments.bed",
+  hicpro_output = "path/to/hicpro_results",
+  normSiteFile = "path/to/norm_sites.bed",
+  FDR = 0.01
+)
+```
+### Local Mode Parameters
+
+Please choose the significant parameters below when using local mode:
+
+- mode: Set to "local" for local mode.
+- outdir: Output directory name (folder name only, will be created in the same directory as the YAML file).
+- yaml: Path to the YAML configuration file.
+- peaks: hichipper peaks options (default "EACH,ALL") or path to peak file.
+- resfrags: Path to restriction fragments file.
+- hicpro_output: Path to HiC-Pro output directory.
+- keep_temp: Whether to keep temporary files (default is FALSE).
+- normSiteFile: Path to normalization restriction enzyme cut site density file.
+- FDR: False Discovery Rate threshold for significant HiChIP loops (default 0.01).
+
+## Global Mode
+
+Global mode is used for genome-wide analysis. It starts from valid pairs and performs binning and interaction calling.
+
+```r
+run_sintHiChIP(
+  mode = "global",
+  outdir = "/path/to/output",
+  valid_pairs = "/path/to/valid_pairs.txt",
+  chr_size = "/path/to/chrom_sizes.txt",
+  build_matrix = "/path/to/build_matrix",
+  peaks = "/path/to/peaks.bed",
+  normSiteFile = "/path/to/norm_sites.bed",
+  bin_size = 5000,
+  FDR = 0.01
+)
+```
+### Global Mode Parameters
+
+Please choose the significant parameters below when using global mode:
+
+- mode: Set to "global" for global mode.
+- outdir: Full path to output directory.
+- valid_pairs: Path to valid pairs file.
+- chr_size: Path to chromosome size file.
+- build_matrix: Path to build matrix tool.
+- peaks: Path to peak file.
+- bin_size: Bin size for matrix generation (default 5000).
+- normSiteFile: Path to normalization restriction enzyme cut site density file.
+- FDR: False Discovery Rate threshold for significant HiChIP loops (default 0.01).
+
+## Output Files
+
+sintHiChIP generates some significat output files:
+
+- Filtered interaction files (*.filt.intra.loop_counts.bedpe)
+- Significant interaction files (*.interaction.Q0.01.txt)
+- WashU Genome Browser compatible tracks (*.interaction.Q0.01.washu.txt.gz)
+
+The exact names and locations of these files will depend on the input parameters and mode of operation.
+
+## Documentation
+
+For more detailed information about the functions and their usage, you can use help in R:
+
+```r
+?sintHiChIP
+?run_sintHiChIP
+```
+
+These will provide comprehensive documentation for the package and its main function, including all parameters and their descriptions.
+
+## Workflow
+
+The workflow can briefly describe as below:
+
+1. Data Preparation: Ensure you have the necessary input files (valid pairs, peaks, etc.) ready.
+2. Mode Selection: Choose between local and global mode based on your analysis needs.
+3. Run sintHiChIP: Use the run_sintHiChIP function with appropriate parameters.
+4. Output Analysis: Examine the output files for significant interactions and other results.
+
+## Tips and Best Practices
+
+To make better use of the sintHiChIP software, please keep the following tips:
+
+1. Always use the latest version of sintHiChIP for the most up-to-date features and bug fixes.
+2. Carefully prepare your input files to ensure they are in the correct format.
+3. Adjust the FDR threshold based on your specific experimental needs and the stringency required.
+4. For large datasets, consider running sintHiChIP on a high-performance computing cluster.
+
+## Troubleshooting
+
+If you encounter any issues while using sintHiChIP, consider the following steps:
+
+1. Check that all input files are correctly formatted and accessible.
+2. Ensure all required dependencies are installed and up to date.
+3. Verify that you have sufficient disk space for output files.
+4. For specific error messages, consult the package documentation or seek help from the package maintainers.
+
+
+## Conclusion
+
+sintHiChIP provides a powerful and flexible tool for analyzing HiChIP data. By offering both local and global modes, it caters to a wide range of analysis needs. We hope this vignette helps you get started with sintHiChIP and enables you to make the most of your HiChIP data analysis.

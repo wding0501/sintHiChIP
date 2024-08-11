@@ -1,0 +1,19 @@
+Package: sintHiChIP
+Title: sintHiChIP: an R package for detecting significant HiChIP interactions with cut site density correction
+Version: 0.0.1
+Authors@R: 
+    person("Weiyue", "Ding", , "wyding0501@hotmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: sintHiChIP is a robust and user-friendly R package designed to streamline the analysis of HiChIP (Hi-C chromatin immunoprecipitation) data. It offers a comprehensive pipeline from raw data processing to interaction map generation, supporting both local and global analysis modes. sintHiChIP is built to facilitate the identification and visualization of significant chromatin interactions, incorporating restriction enzyme cut site density correction to enhance accuracy. This makes 'intHiChIP an invaluable tool for researchers in the field of genomics.
+License: GPL-3
+Imports: GenomeInfoDb, GenomicRanges, IRanges, Rcpp, S4Vectors,
+        data.table, dplyr, matrixStats, methods, readr, stats, yaml,
+        tools
+RoxygenNote: 7.3.2
+Encoding: UTF-8
+Suggests: testthat, knitr, rmarkdown
+VignetteBuilder: knitr
+NeedsCompilation: yes
+Packaged: 2024-08-10 01:25:23 UTC; wding
+Author: Weiyue Ding [aut, cre] (YOUR-ORCID-ID)
+Maintainer: Weiyue Ding <wyding0501@hotmail.com>
