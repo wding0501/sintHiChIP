@@ -10,7 +10,7 @@ You can install sintHiChIP directly from GitHub using the devtools package:
 if (!requireNamespace("devtools", quietly = TRUE))
     install.packages("devtools")
 
-devtools::install_github("YourGitHubUsername/sintHiChIP")
+devtools::install_github("wding0501/sintHiChIP")
 ```
 
 ## Prerequisites
