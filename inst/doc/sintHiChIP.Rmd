@@ -1,7 +1,7 @@
 ---
 title: "sintHiChIP"
 author: "Weiyue Ding"
-affiliation: "Harbin institute of technology"
+affiliation: "Harbin Institute of Technology"
 email: "wyding0501@hotmail.com"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -22,6 +22,10 @@ knitr::opts_chunk$set(
 
 sintHiChIP is a comprehensive R package designed for the analysis of HiChIP data, offering both local and global modes of operation. By correcting the bias of restriction enzyme cut site density, sintHiChIP facilitates the identification and characterization of significant chromatin interactions from HiChIP experiments.
 
+## Platform
+
+sintHiChIP is primarily designed to run on Linux and Unix-like operating systems. This includes various Linux distributions (such as Ubuntu, CentOS, Fedora) as well as Unix-based systems like macOS. While it may work on other platforms, we strongly recommend using a Linux or Unix environment for optimal performance and compatibility.
+
 ## Prerequisites
 
 Before installing and using sintHiChIP, ensure you have the following software and R packages installed. Pay special attention to the requirements for local mode.
@@ -39,11 +43,11 @@ Before installing and using sintHiChIP, ensure you have the following software a
 
 4. bedtools (version 2.29.0 or higher)
    - Used for genomic interval manipulations
-   - Installation: `sudo apt-get install bedtools` (Ubuntu/Debian) or `brew install bedtools` (MacOS with Homebrew)
+   - Installation: `sudo apt-get install bedtools` (Ubuntu/Debian) 
 
 5. tabix (usually comes with samtools, version 1.10 or higher)
    - Used for indexing and querying TAB-delimited genome position files
-   - Installation: `sudo apt-get install tabix` (Ubuntu/Debian) or `brew install tabix` (MacOS with Homebrew)
+   - Installation: `sudo apt-get install tabix` (Ubuntu/Debian) 
 
 6. bgzip (usually comes with samtools, version 1.10 or higher)
    - Used for blocking compression of genomic data files
@@ -57,11 +61,14 @@ sintHiChIP requires pre-processed HiChIP data. This data should be in a format c
    - Aligned and filtered read pairs output folder (often the output of tools like HiC-Pro or similar pipelines)
    - Peak files (if not using hichipper for peak calling)
    - Restriction fragment information
+   - Normalization restriction enzyme cut site density file
+   - the build_matrix file from HiC-Pro utilites
 
 2. For Global Mode:
    - Valid pairs file
    - Chromosome size file
    - Peak file
+   - Normalizated restriction enzyme cut site density file
 
 Note: While sintHiChIP does not require HiC-Pro to be installed, it does expect input data in a format similar to HiC-Pro output. Users should ensure their data is properly formatted regardless of the preprocessing pipeline used.
 
@@ -82,47 +89,25 @@ BiocManager::install(bioc_pkgs[!bioc_pkgs %in% installed.packages()[,"Package"]]
 # Install CRAN packages if not already installed
 cran_pkgs <- c("data.table", "dplyr", "readr", "yaml", "Rcpp", "matrixStats", "testthat", "knitr", "rmarkdown")
 install.packages(cran_pkgs[!cran_pkgs %in% installed.packages()[,"Package"]])
-
-
-# Install Bioconductor packages
-BiocManager::install(c(
-    "GenomicRanges",   # Package for handling genomic ranges
-    "IRanges",         # Package for interval and range operations
-    "S4Vectors",       # Package for S4 vectors and data structures
-    "GenomeInfoDb"     # Package for genome annotation data
-))
-
-# Install CRAN packages
-install.packages(c(
-    "data.table",      # Package for fast data manipulation
-    "dplyr",           # Package for data manipulation
-    "readr",           # Package for reading data
-    "yaml",            # Package for working with YAML files
-    "Rcpp",            # Package for integrating C++ with R
-    "matrixStats",     # Package for matrix statistics
-    "testthat",        # Package for unit testing (Suggested)
-    "knitr",           # Package for dynamic report generation (Suggested)
-    "rmarkdown"        # Package for dynamic document generation (Suggested)
-))
-
 ```
 
 ## Installation
 
 You can install sintHiChIP directly from GitHub using the devtools package:
-```
+```r
 if (!requireNamespace("devtools", quietly = TRUE))
     install.packages("devtools")
 
-devtools::install_github("wding0501/sintHiChIP")
+devtools::install_github("YourGitHubUsername/sintHiChIP")
 ```
+
 ## Usage
 
 sintHiChIP can be run in two modes: local and global. Each mode has its specific parameters and use cases.
 
 ## Local Mode
 
-Local mode is designed for analyzing specific regions of interest (Peak-to-Peak). It uses either hichipper for peak calling (defallt "EACH, ALL"), or the input ChIP-seq or HiChIP peaks to identify local interaction.
+Local mode is designed for analyzing specific regions of interest (Peak-to-Peak). It uses either hichipper for peak calling (default "EACH, ALL"), or the input ChIP-seq or HiChIP peaks to identify local interaction.
 
 ```r
 library(sintHiChIP)
@@ -138,6 +123,7 @@ run_sintHiChIP(
   FDR = 0.01
 )
 ```
+
 ### Local Mode Parameters
 
 Please choose the significant parameters below when using local mode:
@@ -169,6 +155,7 @@ run_sintHiChIP(
   FDR = 0.01
 )
 ```
+
 ### Global Mode Parameters
 
 Please choose the significant parameters below when using global mode:
@@ -185,13 +172,32 @@ Please choose the significant parameters below when using global mode:
 
 ## Output Files
 
-sintHiChIP generates some significat output files:
+sintHiChIP generates several significant output files:
 
-- Filtered interaction files (*.filt.intra.loop_counts.bedpe)
-- Significant interaction files (*.interaction.Q0.01.txt)
-- WashU Genome Browser compatible tracks (*.interaction.Q0.01.washu.txt.gz)
+1. Filtered interaction files (*.all.intra.loop_counts.bedpe)
+   Columns:
+   - chr1: Chromosome of the first anchor
+   - start1: Start position of the first anchor
+   - end1: End position of the first anchor
+   - chr2: Chromosome of the second anchor
+   - start2: Start position of the second anchor
+   - end2: End position of the second anchor
+   - dot:  the dot .
+   - couunt: raw loop counts
 
-The exact names and locations of these files will depend on the input parameters and mode of operation.
+
+2. Significant interaction files (*.interaction.Q0.01.txt)
+   Columns:
+   - chr1: Chromosome of the first anchor
+   - start1: Start position of the first anchor
+   - end1: End position of the first anchor
+   - chr2: Chromosome of the second anchor
+   - start2: Start position of the second anchor
+   - end2: End position of the second anchor
+   - count: raw loop counts
+   - q_value: Adjuested P-value of the interaction
+
+3. WashU Genome Browser compatible tracks (*.interaction.Q0.01.washu.txt.gz)
 
 ## Documentation
 
@@ -206,7 +212,7 @@ These will provide comprehensive documentation for the package and its main func
 
 ## Workflow
 
-The workflow can briefly describe as below:
+The workflow can be briefly described as below:
 
 1. Data Preparation: Ensure you have the necessary input files (valid pairs, peaks, etc.) ready.
 2. Mode Selection: Choose between local and global mode based on your analysis needs.
@@ -215,12 +221,13 @@ The workflow can briefly describe as below:
 
 ## Tips and Best Practices
 
-To make better use of the sintHiChIP software, please keep the following tips:
+To make better use of the sintHiChIP software, please keep the following tips in mind:
 
 1. Always use the latest version of sintHiChIP for the most up-to-date features and bug fixes.
 2. Carefully prepare your input files to ensure they are in the correct format.
 3. Adjust the FDR threshold based on your specific experimental needs and the stringency required.
 4. For large datasets, consider running sintHiChIP on a high-performance computing cluster.
+5. When running on a Linux or Unix system, ensure you have the necessary permissions to execute the required software and access input/output directories.
 
 ## Troubleshooting
 
@@ -230,7 +237,7 @@ If you encounter any issues while using sintHiChIP, consider the following steps
 2. Ensure all required dependencies are installed and up to date.
 3. Verify that you have sufficient disk space for output files.
 4. For specific error messages, consult the package documentation or seek help from the package maintainers.
-
+5. If running on a non-Unix/Linux system, consider using a Linux/Unix virtual machine or container to ensure compatibility.
 
 ## Conclusion
 
