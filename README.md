@@ -78,9 +78,31 @@ run_sintHiChIP(
 
 sintHiChIP generates the following significant output files:
 
-- Filtered interaction files (*.filt.intra.loop_counts.bedpe)
-- Significant interaction files (*.interaction.Q0.01.txt)
-- WashU Genome Browser compatible tracks (*.interaction.Q0.01.washu.txt.gz)
+1. Distance filtered intra interaction files (*.filt.intra.loop_counts.bedpe)
+   Columns:
+   - chr1: Chromosome of the first anchor
+   - start1: Start position of the first anchor
+   - end1: End position of the first anchor
+   - chr2: Chromosome of the second anchor
+   - start2: Start position of the second anchor
+   - end2: End position of the second anchor
+   - dot:  the dot .
+   - couunt: raw loop counts
+
+
+2. Significant interaction files (*.interaction.Q0.01.txt)
+   Columns:
+   - chr1: Chromosome of the first anchor
+   - start1: Start position of the first anchor
+   - end1: End position of the first anchor
+   - chr2: Chromosome of the second anchor
+   - start2: Start position of the second anchor
+   - end2: End position of the second anchor
+   - count: raw loop counts
+   - q_value: Adjuested P-value of the interaction
+
+3. WashU Genome Browser compatible tracks (*.interaction.Q0.01.washu.txt.gz)
+
 
 ## Documentation
 
