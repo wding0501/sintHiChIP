@@ -24,7 +24,7 @@ sintHiChIP is a comprehensive R package designed for the analysis of HiChIP data
 
 ## Platform
 
-sintHiChIP is primarily designed to run on Linux and Unix-like operating systems. This includes various Linux distributions (such as Ubuntu, CentOS, Fedora) as well as Unix-based systems like macOS. While it may work on other platforms, we strongly recommend using a Linux or Unix environment for optimal performance and compatibility.
+sintHiChIP is primarily designed to run on Linux systems (such as Ubuntu, CentOS, Fedora). While it may work on other platforms, we strongly recommend using a Linux environment for optimal performance and compatibility.
 
 ## Prerequisites
 
@@ -227,7 +227,7 @@ To make better use of the sintHiChIP software, please keep the following tips in
 2. Carefully prepare your input files to ensure they are in the correct format.
 3. Adjust the FDR threshold based on your specific experimental needs and the stringency required.
 4. For large datasets, consider running sintHiChIP on a high-performance computing cluster.
-5. When running on a Linux or Unix system, ensure you have the necessary permissions to execute the required software and access input/output directories.
+5. When running on a Linux or system, ensure you have the necessary permissions to execute the required software and access input/output directories.
 
 ## Troubleshooting
 
