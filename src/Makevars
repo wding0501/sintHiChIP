@@ -1,5 +1,0 @@
-R_HOME=/home/wding/Software/R/lib/R
-PKG_CPPFLAGS = -I$(R_HOME)/include -I$(R_HOME)/library/Rcpp/include
-PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
-
-
