@@ -14,7 +14,7 @@ devtools::install_github("wding0501/sintHiChIP")
 ```
 ## Platform
 
-sintHiChIP is primarily designed to run on Linux systems (such as Ubuntu, CentOS, Fedora). While it may work on other platforms, we strongly recommend using a Linux environment for optimal performance and compatibility.
+sintHiChIP is primarily designed to run on Linux and Unix-like operating systems. This includes various Linux distributions (such as Ubuntu, CentOS, Fedora) as well as Unix-based systems like macOS. While it may work on other platforms, we strongly recommend using a Linux or Unix environment for optimal performance and compatibility.
 
 ## Prerequisites
 
