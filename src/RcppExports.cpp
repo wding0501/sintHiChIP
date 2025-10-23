@@ -25,15 +25,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // makecombos
-DataFrame makecombos(CharacterVector chrom, DataFrame chrpeaks, double mindist, double maxdist);
+DataFrame makecombos(CharacterVector chrom, DataFrame chrpeaks, int64_t mindist, int64_t maxdist);
 RcppExport SEXP _sintHiChIP_makecombos(SEXP chromSEXP, SEXP chrpeaksSEXP, SEXP mindistSEXP, SEXP maxdistSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< CharacterVector >::type chrom(chromSEXP);
     Rcpp::traits::input_parameter< DataFrame >::type chrpeaks(chrpeaksSEXP);
-    Rcpp::traits::input_parameter< double >::type mindist(mindistSEXP);
-    Rcpp::traits::input_parameter< double >::type maxdist(maxdistSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type mindist(mindistSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type maxdist(maxdistSEXP);
     rcpp_result_gen = Rcpp::wrap(makecombos(chrom, chrpeaks, mindist, maxdist));
     return rcpp_result_gen;
 END_RCPP
