@@ -1,5 +1,8 @@
-# Optimized R Implementation of normSite
+# ============================================================================
+# normSite.R - Complete Version with generate_normSite_file() Function
+# Optimized R Implementation for HiChIP Normalization
 # Using data.table, vectorization, and parallel processing
+# ============================================================================
 
 suppressMessages({
     library(data.table)
@@ -249,185 +252,260 @@ normSite <- function(variance = 100000, resSites, GenomeBin, SeqName, binsize,
             result_length <- length(chr_result)
             end_offset <- current_offset + result_length - 1
             
-            if (end_offset <= length(GrangeSite)) {
-                GrangeSite[current_offset:end_offset] <- chr_result
-                current_offset <- end_offset + 1
-                
-                # Progress reporting
-                zero_pct <- sum(chr_result == 0) / length(chr_result) * 100
-                max_val <- max(chr_result)
-                cat("Completed chromosome", SeqName[i], "- bins:", result_length, 
-                    ", zero%:", sprintf("%.1f", zero_pct), 
-                    ", max:", sprintf("%.4f", max_val), "\n")
-            } else {
-                cat("Error: Result vector overflow for chromosome", SeqName[i], "\n")
+            if (end_offset > total_bins) {
+                cat("Warning: Result overflow for chromosome", SeqName[i], "\n")
+                end_offset <- total_bins
+                result_length <- total_bins - current_offset + 1
+                chr_result <- chr_result[1:result_length]
             }
+            
+            GrangeSite[current_offset:end_offset] <- chr_result
+            current_offset <- end_offset + 1
         }
         
     } else {
-        # Serial processing with optimizations
-        cat("Using serial processing with optimizations\n")
+        # Serial processing
+        cat("Using serial processing\n")
         
         for (i in seq_len(Chrlen)) {
-            cat("Processing chromosome", SeqName[i], "(", i, "/", Chrlen, ")\n")
+            chr_name <- SeqName[i]
+            cat("Processing chromosome:", chr_name, "\n")
             
-            # Extract chromosome-specific data
-            chrSite <- resSites[seqnames(resSites) == SeqName[i]]
-            seqlevels(chrSite, pruning.mode = "coarse") <- SeqName[i]
-            
+            chrSite <- resSites[seqnames(resSites) == chr_name]
+            seqlevels(chrSite, pruning.mode = "coarse") <- chr_name
             PosMax <- seqlengths(GenomeBin)[i]
             
             if (length(chrSite) == 0) {
                 site <- rep(0, chr_bin_counts[i])
             } else {
-                # Execute imputeSite with timing
-                start_time <- Sys.time()
                 normchr <- imputeSite(variance, chrSite, PosMax)
-                impute_time <- Sys.time() - start_time
-                
-                # Execute WindowFunct with timing
-                start_time <- Sys.time()
                 site <- WindowFunct(normchr, binsize)
-                window_time <- Sys.time() - start_time
-                
-                cat("    Impute time:", format(impute_time), ", Window time:", format(window_time), "\n")
-                
-                # Memory cleanup
-                rm(normchr)
-                gc(verbose = FALSE)
             }
             
-            # Copy results to final array
             result_length <- length(site)
             end_offset <- current_offset + result_length - 1
+            
+            if (end_offset > total_bins) {
+                end_offset <- total_bins
+                result_length <- total_bins - current_offset + 1
+                site <- site[1:result_length]
+            }
+            
             GrangeSite[current_offset:end_offset] <- site
             current_offset <- end_offset + 1
-            
-            # Report statistics
-            zero_count <- sum(site == 0)
-            zero_pct <- zero_count / length(site) * 100
-            max_val <- max(site)
-            cat("    Bins:", length(site), ", Zero%:", sprintf("%.1f", zero_pct), 
-                ", Max:", sprintf("%.6f", max_val), "\n")
         }
     }
     
     return(GrangeSite)
 }
 
-#' Intelligent BED file preprocessing with filtering and validation
+#' Preprocess BED file with optimized data.table operations
 #' 
-#' @param bed_file Path to BED file
-#' @param target_chroms Vector of target chromosome names
-#' @param min_sites_per_chr Minimum sites required per chromosome
-#' @return List containing processed data and statistics
-preprocess_bed_file <- function(bed_file, target_chroms, min_sites_per_chr = 100) {
-    cat("Preprocessing BED file:", bed_file, "\n")
+#' @param bed_file Path to input BED file
+#' @param target_chroms Character vector of target chromosome names
+#' @return List containing processed data.table and valid chromosomes
+preprocess_bed_file <- function(bed_file, target_chroms) {
+    cat("Reading BED file:", bed_file, "\n")
     
-    # Fast reading with data.table - handle variable number of columns
-    dt <- fread(bed_file, header = FALSE)
+    # Use data.table's fread for fast reading
+    dt <- fread(bed_file, header = FALSE, col.names = c("chr", "start", "end"))
     
-    # Check number of columns and assign appropriate names
-    ncols <- ncol(dt)
-    cat("Detected", ncols, "columns in BED file\n")
+    initial_rows <- nrow(dt)
+    cat("Initial rows:", initial_rows, "\n")
     
-    if (ncols < 3) {
-        stop("BED file must have at least 3 columns (chr, start, end)")
+    # Filter for target chromosomes (vectorized operation)
+    dt <- dt[chr %in% target_chroms]
+    
+    filtered_rows <- nrow(dt)
+    cat("Rows after chromosome filtering:", filtered_rows, "\n")
+    
+    if (filtered_rows == 0) {
+        stop("No data remaining after filtering for target chromosomes")
     }
     
-    # Use only first 3 columns and rename them
-    dt <- dt[, 1:3]
-    setnames(dt, c("chr", "start", "end"))
+    # Get valid chromosomes in order
+    valid_chroms <- unique(dt$chr)
+    valid_chroms <- valid_chroms[order(match(valid_chroms, target_chroms))]
     
-    cat("Original file:", nrow(dt), "sites across", length(unique(dt$chr)), "chromosomes\n")
+    cat("Valid chromosomes found:", length(valid_chroms), "\n")
+    cat("Chromosomes:", paste(valid_chroms, collapse = ", "), "\n")
     
-    # Filter to target chromosomes
-    dt_filtered <- dt[chr %in% target_chroms]
+    # Convert chr to factor for efficient sorting
+    dt[, chr := factor(chr, levels = valid_chroms)]
     
-    # Calculate chromosome statistics
-    chr_stats <- dt_filtered[, .(count = .N, max_pos = max(end)), by = chr]
-    setorder(chr_stats, -count)
-    
-    cat("Chromosome statistics:\n")
-    print(chr_stats)
-    
-    # Filter chromosomes with insufficient sites
-    valid_chrs <- chr_stats[count >= min_sites_per_chr, chr]
-    dt_final <- dt_filtered[chr %in% valid_chrs]
-    
-    cat("Final data:", nrow(dt_final), "sites across", length(valid_chrs), "chromosomes\n")
-    
-    # Additional data quality checks
-    duplicates <- dt_final[, .N, by = .(chr, start)][N > 1]
-    if (nrow(duplicates) > 0) {
-        cat("Warning:", nrow(duplicates), "duplicate sites found\n")
-        dt_final <- unique(dt_final, by = c("chr", "start"))
-        cat("Removed duplicates, final count:", nrow(dt_final), "\n")
-    }
+    # Sort by chromosome and position
+    setorder(dt, chr, start)
     
     return(list(
-        data = dt_final,
-        valid_chromosomes = valid_chrs,
-        chromosome_stats = chr_stats
+        data = dt,
+        valid_chromosomes = valid_chroms
     ))
 }
 
-#' Main turbo normSite function with comprehensive optimization
+# ============================================================================
+# MAIN EXPORTED FUNCTION: generate_normSite_file()
+# ============================================================================
+
+#' Generate Normalization Site File for sintHiChIP
 #' 
-#' @param bed_file Input BED file path
-#' @param species Species name ("mouse", "human", "rat")
-#' @param variance Variance parameter for normal distribution
-#' @param binsize Genomic bin size
-#' @param use_parallel Enable parallel processing
-#' @param ncores Number of cores (NULL for auto-detection)
-#' @param output_dir Output directory
-#' @return data.table with normalized results
-main_normSite_turbo <- function(bed_file, species = "mouse", variance = 100000, 
-                               binsize = 5000, use_parallel = TRUE, ncores = NULL, 
-                               output_dir = NULL) {
+#' This function generates a normalization file that accounts for restriction
+#' enzyme cut site density across the genome. The normalization file is used
+#' by sintHiChIP to correct for biases in chromatin interaction detection.
+#' 
+#' @param bed_file Path to restriction enzyme cut site BED file (required).
+#'   This should be a tab-delimited file with chromosome, start, and end positions.
+#' @param species Species name - "mouse", "human", or "rat" (required).
+#'   This determines which chromosomes to include in the analysis.
+#' @param genome_build Genome build version. If NULL, auto-detected based on species.
+#'   Options: "mm09", "mm10" (mouse); "hg19", "hg38" (human); "rn6" (rat).
+#' @param variance Variance parameter for Gaussian smoothing (default: 100000).
+#'   Higher values result in smoother density profiles.
+#' @param binsize Genomic bin size in base pairs (default: 5000).
+#'   Should match the resolution used in HiChIP analysis.
+#' @param output_dir Output directory path (default: current directory).
+#'   The normalization file will be saved here.
+#' @param use_parallel Enable parallel processing (default: TRUE).
+#'   Recommended for faster processing on multi-core systems.
+#' @param ncores Number of cores for parallel processing (default: NULL for auto-detection).
+#'   If NULL, uses detectCores() - 1, maximum of 4.
+#' 
+#' @return Character string containing the path to the generated normalization file.
+#' 
+#' @details
+#' The function performs the following steps:
+#' 1. Reads restriction enzyme cut sites from the BED file
+#' 2. Filters for chromosomes appropriate to the specified species
+#' 3. Applies Gaussian smoothing to estimate site density
+#' 4. Bins the genome and calculates mean site density per bin
+#' 5. Outputs a tab-delimited file with columns: chr, start, end, MeanSite
+#' 
+#' The output file naming convention is:
+#' normsite_{bed_filename}_{species}_{binsize}_turbo.tmp
+#' 
+#' @examples
+#' \dontrun{
+#' # Generate normalization file for mouse genome
+#' normsite_file <- generate_normSite_file(
+#'   bed_file = "mm10_mboi.bed",
+#'   species = "mouse",
+#'   binsize = 5000,
+#'   output_dir = "./normalization"
+#' )
+#' 
+#' # Generate for human genome with specific parameters
+#' normsite_file <- generate_normSite_file(
+#'   bed_file = "hg38_mboi.bed",
+#'   species = "human",
+#'   genome_build = "hg38",
+#'   variance = 100000,
+#'   binsize = 5000,
+#'   output_dir = "./norm_files",
+#'   use_parallel = TRUE,
+#'   ncores = 8
+#' )
+#' 
+#' # Use the generated file in sintHiChIP
+#' run_sintHiChIP(
+#'   mode = "local",
+#'   normSiteFile = normsite_file,
+#'   # ... other parameters
+#' )
+#' }
+#' 
+#' @export
+generate_normSite_file <- function(bed_file, 
+                                   species,
+                                   genome_build = NULL,
+                                   variance = 100000,
+                                   binsize = 5000,
+                                   output_dir = ".",
+                                   use_parallel = TRUE,
+                                   ncores = NULL) {
     
-    if (is.null(output_dir)) {
-        output_dir <- getwd()
+    # Validate required parameters
+    if (missing(bed_file) || is.null(bed_file)) {
+        stop("bed_file is required")
+    }
+    if (missing(species) || is.null(species)) {
+        stop("species is required. Options: 'mouse', 'human', 'rat'")
+    }
+    if (!file.exists(bed_file)) {
+        stop("BED file does not exist: ", bed_file)
     }
     
-    # Define chromosome sets for different species
+    # Validate species
+    valid_species <- c("mouse", "human", "rat")
+    if (!tolower(species) %in% valid_species) {
+        stop("Invalid species. Options: ", paste(valid_species, collapse = ", "))
+    }
+    species <- tolower(species)
+    
+    # Auto-detect genome build if not specified
+    if (is.null(genome_build)) {
+        genome_build <- switch(species,
+            "mouse" = "mm10",
+            "human" = "hg38",
+            "rat" = "rn6",
+            stop("Could not auto-detect genome build for species: ", species)
+        )
+        cat("Auto-detected genome build:", genome_build, "\n")
+    }
+    
+    # Define chromosome sets for different genome builds
     chr_sets <- list(
-        mouse = paste0("chr", c(1:19, "X", "Y", "M")),
-        human = paste0("chr", c(1:22, "X", "Y", "M")),
-        rat = paste0("chr", c(1:20, "X", "Y", "M"))
+        # Mouse genomes
+        mm09 = paste0("chr", c(1:19, "X", "Y", "M")),
+        mm10 = paste0("chr", c(1:19, "X", "Y", "M")),
+        # Human genomes
+        hg19 = paste0("chr", c(1:22, "X", "Y", "M")),
+        hg38 = paste0("chr", c(1:22, "X", "Y", "M")),
+        # Rat genome
+        rn6 = paste0("chr", c(1:20, "X", "Y", "M"))
     )
     
-    target_chroms <- chr_sets[[species]]
+    target_chroms <- chr_sets[[genome_build]]
     if (is.null(target_chroms)) {
-        stop("Unsupported species: ", species, ". Use 'mouse', 'human', or 'rat'")
+        stop("Unsupported genome build: ", genome_build, 
+             ". Options: mm09, mm10 (mouse); hg19, hg38 (human); rn6 (rat)")
     }
     
-    cat("=== Starting Turbo normSite Analysis ===\n")
+    # Create output directory if it doesn't exist
+    if (!dir.exists(output_dir)) {
+        dir.create(output_dir, recursive = TRUE)
+        cat("Created output directory:", output_dir, "\n")
+    }
+    
+    # Print analysis parameters
+    cat("\n=== Starting normSite Analysis ===\n")
+    cat("BED file:", bed_file, "\n")
     cat("Species:", species, "\n")
-    cat("Input file:", bed_file, "\n")
+    cat("Genome build:", genome_build, "\n")
     cat("Variance:", variance, "\n")
-    cat("Bin size:", binsize, "\n")
+    cat("Bin size:", binsize, "bp\n")
+    cat("Output directory:", output_dir, "\n")
     cat("Parallel processing:", use_parallel, "\n")
-    if (use_parallel && !is.null(ncores)) {
+    if (!is.null(ncores)) {
         cat("Number of cores:", ncores, "\n")
     }
     cat("\n")
     
-    # Data preprocessing with validation
+    # Start timing
     start_time <- Sys.time()
-    processed_data <- preprocess_bed_file(bed_file, target_chroms)
-    preprocess_time <- Sys.time() - start_time
-    cat("Preprocessing completed in:", format(preprocess_time), "\n\n")
     
-    # Convert to GenomicRanges objects
+    # Preprocess BED file
+    cat("=== Step 1: Preprocessing BED file ===\n")
+    processed_data <- preprocess_bed_file(bed_file, target_chroms)
     dt <- processed_data$data
+    valid_chroms <- processed_data$valid_chromosomes
+    
+    # Create resSites (GRanges object)
+    cat("\n=== Step 2: Creating GRanges object ===\n")
     resSites <- makeGRangesFromDataFrame(
         data.frame(seqnames = dt$chr, start = dt$start, end = dt$start),
         keep.extra.columns = FALSE
     )
     
     # Setup chromosome information
-    valid_chroms <- processed_data$valid_chromosomes
     seqlevels(resSites, pruning.mode = 'coarse') <- valid_chroms
     
     # Calculate chromosome lengths
@@ -436,45 +514,63 @@ main_normSite_turbo <- function(bed_file, species = "mouse", variance = 100000,
     chr_lengths <- chr_lengths[match(valid_chroms, chr_lengths$chr)]
     
     # Create GenomeBin object
+    cat("Creating genomic bins...\n")
     seqlengths(resSites) <- chr_lengths$length
     GenomeBin <- tileGenome(seqinfo(resSites), tilewidth = binsize, cut.last.tile.in.chrom = TRUE)
     start(GenomeBin) <- start(GenomeBin) - 1
     
-    cat("=== Starting normalization ===\n")
+    cat("Total genomic bins created:", length(GenomeBin), "\n")
+    
+    # Execute normalization
+    cat("\n=== Step 3: Calculating site density normalization ===\n")
     norm_start_time <- Sys.time()
     
-    # Execute super-optimized normalization
-    SiteCoverage <- normSite(variance, resSites, GenomeBin, valid_chroms, 
-                                  binsize, use_parallel = use_parallel, ncores = ncores)
-    
-    norm_end_time <- Sys.time()
-    norm_time <- norm_end_time - norm_start_time
-    cat("Normalization completed in:", format(norm_time), "\n\n")
-    
-    # Generate final results
-    mcols(GenomeBin)$MeanSite <- SiteCoverage
-    
-    NormSiteFile <- data.table(
-        seqnames = as.character(seqnames(GenomeBin)),
-        start = start(GenomeBin),
-        end = end(GenomeBin),
-        MeanSite = mcols(GenomeBin)$MeanSite
+    SiteCoverage <- normSite(
+        variance = variance,
+        resSites = resSites,
+        GenomeBin = GenomeBin,
+        SeqName = valid_chroms,
+        binsize = binsize,
+        use_parallel = use_parallel,
+        ncores = ncores
     )
     
-    # Set bins starting at position 0 to have density 0 (as in original code)
-    NormSiteFile[start == 0, MeanSite := 0]
+    norm_end_time <- Sys.time()
+    norm_duration <- norm_end_time - norm_start_time
+    cat("Normalization completed in:", format(norm_duration), "\n")
+    
+    # Generate final results
+    cat("\n=== Step 4: Generating output file ===\n")
+    mcols(GenomeBin)$MeanSite <- SiteCoverage
+    
+    NormSiteFile <- data.frame(
+        seqnames = seqnames(GenomeBin),
+        start = start(GenomeBin),
+        end = end(GenomeBin),
+        MeanSite = mcols(GenomeBin)[, 1]
+    )
+    
+    # Set bins starting at position 0 to have density 0
+    NormSiteFile$MeanSite[NormSiteFile$start == 0] <- 0
     
     # Generate output filename
     base_name <- tools::file_path_sans_ext(basename(bed_file))
-    output_file <- file.path(output_dir, sprintf("normsite_%s_%s_%d_turbo.tmp", 
-                                                base_name, species, binsize))
+    output_file <- file.path(
+        output_dir,
+        sprintf("normsite_%s_%s_%d_turbo.tmp", base_name, species, binsize)
+    )
     
-    # Write results using fast data.table method
-    fwrite(NormSiteFile, output_file, sep = "\t", col.names = TRUE)
+    # Write results
+    write.table(NormSiteFile, output_file, sep = "\t",
+                row.names = FALSE, quote = FALSE, col.names = TRUE)
     
-    # Generate comprehensive statistics report
-    cat("=== Results Summary ===\n")
-    cat("Total processing time:", format(norm_end_time - start_time), "\n")
+    # Calculate total processing time
+    end_time <- Sys.time()
+    total_duration <- end_time - start_time
+    
+    # Generate summary statistics
+    cat("\n=== Results Summary ===\n")
+    cat("Total processing time:", format(total_duration), "\n")
     cat("Total genomic bins:", nrow(NormSiteFile), "\n")
     cat("Chromosomes processed:", paste(valid_chroms, collapse = ", "), "\n")
     
@@ -482,132 +578,39 @@ main_normSite_turbo <- function(bed_file, species = "mouse", variance = 100000,
     zero_pct <- zero_count / nrow(NormSiteFile) * 100
     cat("Zero density bins:", zero_count, sprintf("(%.1f%%)", zero_pct), "\n")
     
-    non_zero_values <- NormSiteFile[MeanSite > 0, MeanSite]
-    if (length(non_zero_values) > 0) {
-        cat("Non-zero statistics:\n")
-        cat("  Min:", sprintf("%.6f", min(non_zero_values)), "\n")
-        cat("  Mean:", sprintf("%.6f", mean(non_zero_values)), "\n")
-        cat("  Median:", sprintf("%.6f", median(non_zero_values)), "\n")
-        cat("  Max:", sprintf("%.6f", max(non_zero_values)), "\n")
-        cat("  Standard deviation:", sprintf("%.6f", sd(non_zero_values)), "\n")
+    non_zero_sites <- NormSiteFile$MeanSite[NormSiteFile$MeanSite > 0]
+    if (length(non_zero_sites) > 0) {
+        cat("\nNon-zero density statistics:\n")
+        cat("  Min:    ", sprintf("%.6f", min(non_zero_sites)), "\n")
+        cat("  Mean:   ", sprintf("%.6f", mean(non_zero_sites)), "\n")
+        cat("  Median: ", sprintf("%.6f", median(non_zero_sites)), "\n")
+        cat("  Max:    ", sprintf("%.6f", max(non_zero_sites)), "\n")
     }
     
     # Performance metrics
-    total_sites <- nrow(dt)
-    sites_per_second <- total_sites / as.numeric(norm_time, units = "secs")
-    bins_per_second <- nrow(NormSiteFile) / as.numeric(norm_time, units = "secs")
+    total_sites <- length(resSites)
+    total_bins <- nrow(NormSiteFile)
+    duration_seconds <- as.numeric(total_duration, units = "secs")
     
-    cat("Performance metrics:\n")
-    cat("  Sites processed per second:", sprintf("%.0f", sites_per_second), "\n")
-    cat("  Bins generated per second:", sprintf("%.0f", bins_per_second), "\n")
+    if (duration_seconds > 0) {
+        sites_per_second <- total_sites / duration_seconds
+        bins_per_second <- total_bins / duration_seconds
+        
+        cat("\nPerformance metrics:\n")
+        cat("  Sites processed per second:", sprintf("%.0f", sites_per_second), "\n")
+        cat("  Bins generated per second: ", sprintf("%.0f", bins_per_second), "\n")
+    }
     
-    cat("Results written to:", output_file, "\n")
+    cat("\n=== Output File ===\n")
+    cat("File:", output_file, "\n")
+    cat("Size:", sprintf("%.2f MB", file.size(output_file) / 1024^2), "\n")
     
-    return(NormSiteFile)
+    cat("\n=== Analysis completed successfully ===\n\n")
+    
+    # Return the output file path
+    invisible(output_file)
 }
 
 # ============================================================================
-# MAIN EXECUTION SCRIPT
+# End of normSite.R
 # ============================================================================
-
-# Configuration parameters
-setwd("/home/wding/HiChIP/diffloop/normSite")  # Set working directory
-BED_FILE <- "mm10_mboi.bed"  # Change to your file
-GENOME_BUILD <- "mm10"       # Options: "mm09", "mm10", "hg19", "hg38"
-VARIANCE <- 100000
-BIN_SIZE <- 5000
-USE_PARALLEL <- TRUE         # Set to FALSE for serial processing
-NCORES <- NULL              # NULL for auto-detection, or specify number
-
-# Execute analysis using original function structure
-cat("Starting Optimized normSite Analysis...\n")
-
-# Read and preprocess BED file
-cat("Preprocessing BED file:", BED_FILE, "\n")
-
-# Define chromosome sets for different genome builds
-chr_sets <- list(
-    mm09 = paste0("chr", c(1:19, "X", "Y", "M")),
-    mm10 = paste0("chr", c(1:19, "X", "Y", "M")),
-    hg19 = paste0("chr", c(1:22, "X", "Y", "M")),
-    hg38 = paste0("chr", c(1:22, "X", "Y", "M"))
-)
-
-target_chroms <- chr_sets[[GENOME_BUILD]]
-if (is.null(target_chroms)) {
-    stop("Unsupported genome build: ", GENOME_BUILD, ". Use 'mm09', 'mm10', 'hg19', or 'hg38'")
-}
-
-# Preprocess BED file
-processed_data <- preprocess_bed_file(BED_FILE, target_chroms)
-dt <- processed_data$data
-
-# Create resSites (GRanges object)
-resSites <- makeGRangesFromDataFrame(
-    data.frame(seqnames = dt$chr, start = dt$start, end = dt$start),
-    keep.extra.columns = FALSE
-)
-
-# Setup chromosome information
-valid_chroms <- processed_data$valid_chromosomes
-seqlevels(resSites, pruning.mode = 'coarse') <- valid_chroms
-
-# Calculate chromosome lengths
-chr_lengths <- dt[, max(end), by = chr]
-setnames(chr_lengths, c("chr", "length"))
-chr_lengths <- chr_lengths[match(valid_chroms, chr_lengths$chr)]
-
-# Create GenomeBin object
-seqlengths(resSites) <- chr_lengths$length
-GenomeBin <- tileGenome(seqinfo(resSites), tilewidth = BIN_SIZE, cut.last.tile.in.chrom = TRUE)
-start(GenomeBin) <- start(GenomeBin) - 1
-
-# Execute normalization using original function pattern
-cat("=== Starting normalization ===\n")
-start_time <- Sys.time()
-
-SiteCoverage <- normSite(VARIANCE, resSites, GenomeBin, valid_chroms, BIN_SIZE, 
-                                  use_parallel = USE_PARALLEL, ncores = NCORES)
-
-end_time <- Sys.time()
-processing_time <- end_time - start_time
-
-# Generate final results
-mcols(GenomeBin)$MeanSite <- SiteCoverage
-
-NormSiteFile <- data.frame(
-    seqnames = seqnames(GenomeBin), 
-    start = start(GenomeBin), 
-    end = end(GenomeBin),
-    MeanSite = mcols(GenomeBin)[,1]
-)
-
-# Set bins starting at position 0 to have density 0 (as in original code)
-NormSiteFile$MeanSite[NormSiteFile$start == 0] <- 0
-
-# Generate output filename
-output_file <- sprintf("normsite_%s_mboi_%d.tmp", GENOME_BUILD, BIN_SIZE)
-
-# Write results
-write.table(NormSiteFile, output_file, sep = "\t", row.names = FALSE, quote = FALSE, col.names = TRUE)
-
-# Generate statistics report
-cat("=== Results Summary ===\n")
-cat("Total processing time:", format(processing_time), "\n")
-cat("Total genomic bins:", nrow(NormSiteFile), "\n")
-cat("Chromosomes processed:", paste(valid_chroms, collapse = ", "), "\n")
-
-zero_count <- sum(NormSiteFile$MeanSite == 0)
-zero_pct <- zero_count / nrow(NormSiteFile) * 100
-cat("Zero density bins:", zero_count, sprintf("(%.1f%%)", zero_pct), "\n")
-
-non_zero_sites <- NormSiteFile$MeanSite[NormSiteFile$MeanSite > 0]
-if (length(non_zero_sites) > 0) {
-    cat("Non-zero statistics:\n")
-    cat("  Min:", sprintf("%.6f", min(non_zero_sites)), "\n")
-    cat("  Mean:", sprintf("%.6f", mean(non_zero_sites)), "\n")
-    cat("  Median:", sprintf("%.6f", median(non_zero_sites)), "\n")
-    cat("  Max:", sprintf("%.6f", max(non_zero_sites)), "\n")
-}
-
-cat("=== Analysis completed successfully ===\n")
