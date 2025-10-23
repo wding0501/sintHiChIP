@@ -1,3 +1,4 @@
+# sintHiChIP: Accurate and efficient HiChIP Loop Calling with RE Density modeling
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
