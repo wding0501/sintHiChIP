@@ -1,6 +1,11 @@
-# sintHiChIP
-
-sintHiChIP is a comprehensive R package designed for the analysis of HiChIP data, offering both local and global modes of operation. By correcting the bias of restriction enzyme cut site density, sintHiChIP facilitates the identification and characterization of significant chromatin interactions from HiChIP experiments.
+---
+title: "sintHiChIP: detecting significant HiChIP interactions with cut site density correction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sintHiChIP: detecting significant HiChIP interactions with cut site density correction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
 
 ## Introduction
 
@@ -45,7 +50,7 @@ sintHiChIP requires pre-processed HiChIP data from HiC-Pro pipeline. The package
 1. **Common Requirements (Both Modes):**
    - HiC-Pro output directory containing allValidPairs files
    - Peak files in BED format (from MACS2 or similar peak callers)
-   - Normalization restriction enzyme cut site density file in BED format
+   - Normalization restriction enzyme cut site density file (generated using `generate_normSite_file()` function, see [Generating Normalization Files](#generating-normalization-files) section)
 
 2. **Local Mode Specific:**
    - Restriction fragment information in BED format
@@ -85,6 +90,78 @@ if (!requireNamespace("devtools", quietly = TRUE))
 
 devtools::install_github("wding0501/sintHiChIP")
 ```
+
+## Generating Normalization Files
+
+Before running sintHiChIP analysis, you need to generate a normalization file that accounts for restriction enzyme cut site density across the genome.
+
+### generate_normSite_file()
+
+This function creates the normalization file required for cut site density correction:
+
+```r
+library(sintHiChIP)
+
+# Generate normalization file for mouse genome
+normsite_file <- generate_normSite_file(
+  bed_file = "mm10_mboi.bed",
+  species = "mouse",
+  variance = 100000,
+  binsize = 5000,
+  output_dir = "./normalization",
+  use_parallel = TRUE,
+  ncores = NULL
+)
+```
+
+#### Parameters:
+- **bed_file**: Path to restriction enzyme cut site BED file (required)
+- **species**: Species name - "mouse", "human", or "rat" (required)
+- **variance**: Variance parameter for Gaussian smoothing (default: 100000)
+- **binsize**: Genomic bin size in base pairs (default: 5000)
+- **output_dir**: Output directory path (default: current directory)
+- **use_parallel**: Enable parallel processing (default: TRUE)
+- **ncores**: Number of cores for parallel processing (default: NULL for auto-detection)
+
+#### Examples for different species:
+
+**For Mouse (mm10):**
+```r
+setwd("/path/to/data")
+BED_FILE <- "mm10_mboi.bed"
+GENOME_BUILD <- "mm10"
+BIN_SIZE <- 5000
+USE_PARALLEL <- TRUE
+NCORES <- 8
+```
+
+**For Human (hg38):**
+```r
+setwd("/path/to/data")
+BED_FILE <- "hg38_mboi.bed"
+GENOME_BUILD <- "hg38"
+BIN_SIZE <- 5000
+USE_PARALLEL <- TRUE
+NCORES <- 8
+```
+
+**Run:**
+```bash
+Rscript normSite.R
+```
+
+**Output:**
+- Mouse: `normsite_mm10_mboi_5000.tmp`
+- Human: `normsite_hg38_mboi_5000.tmp`
+
+#### Output:
+The function generates a file named `normsite_{filename}_{species}_{binsize}_turbo.tmp` containing:
+- Column 1: Chromosome name
+- Column 2: Bin start position
+- Column 3: Bin end position
+- Column 4: Mean restriction site density
+
+**Important:** Generate this file once per genome/enzyme combination. The same normalization file can be reused for all samples with the same genome assembly and restriction enzyme.
 
 ## Main Functions
 
@@ -140,7 +217,15 @@ The primary interface for sintHiChIP processing, supporting both local and globa
 ```r
 library(sintHiChIP)
 
-# Local mode processing
+# Step 1: Generate normalization file (do this once)
+normsite_file <- generate_normSite_file(
+  bed_file = "mm10_mboi.bed",
+  species = "mouse",
+  binsize = 5000,
+  output_dir = "./normalization"
+)
+
+# Step 2: Local mode processing
 run_sintHiChIP(
   mode = "local",
   outdir = "/path/to/output",
@@ -148,13 +233,13 @@ run_sintHiChIP(
   sample_name = "sample1",
   peaks = "/path/to/peaks.bed",
   resfrags = "/path/to/restriction_fragments.bed",
-  normSiteFile = "/path/to/norm_sites.bed",
+  normSiteFile = normsite_file,  # Use generated file
   FDR = 0.01,
   min_dist = 20000,
   max_dist = 2000000
 )
 
-# Global mode processing
+# Step 3: Global mode processing
 run_sintHiChIP(
   mode = "global",
   outdir = "/path/to/output",
@@ -163,7 +248,7 @@ run_sintHiChIP(
   peaks = "/path/to/peaks.bed",
   chr_size = "/path/to/chrom_sizes.txt",
   build_matrix = "/path/to/build_matrix",
-  normSiteFile = "/path/to/norm_sites.bed",
+  normSiteFile = normsite_file,  # Use the same generated file
   bin_size = 5000,
   FDR = 0.01,
   min_dist = 20000,
@@ -278,7 +363,7 @@ sintHiChIP_global_single(
 ### Core Parameters:
 - **outdir**: Output directory path
 - **peaks**: Peak file in BED format (required for both modes)
-- **normSiteFile**: Normalization restriction enzyme cut site density file
+- **normSiteFile**: Normalization file generated by `generate_normSite_file()` (required for both modes)
 - **FDR**: False Discovery Rate threshold (default: 0.01)
 - **min_dist**: Minimum interaction distance in bp (default: 20000)
 - **max_dist**: Maximum interaction distance in bp (default: 2000000)
@@ -334,36 +419,100 @@ For detailed function documentation:
 ?sintHiChIP_global
 ?sintHiChIP_local_single
 ?sintHiChIP_global_single
+?generate_normSite_file
+```
+
+## Complete Workflow Example
+
+Here is a complete example demonstrating the entire sintHiChIP workflow from normalization file generation to result interpretation:
+
+```r
+library(sintHiChIP)
+
+# ============================================================================
+# Step 1: Generate Normalization File (one-time setup per genome/enzyme)
+# ============================================================================
+
+cat("Generating normalization file...\n")
+normsite_file <- generate_normSite_file(
+  bed_file = "data/mm10_mboi.bed",
+  species = "mouse",
+  variance = 100000,
+  binsize = 5000,
+  output_dir = "normalization",
+  use_parallel = TRUE,
+  ncores = 8
+)
+
+cat("Normalization file created:", normsite_file, "\n\n")
+
+# ============================================================================
+# Step 2: Run sintHiChIP Analysis
+# ============================================================================
+
+cat("Running sintHiChIP analysis for sample1...\n")
+
+run_sintHiChIP(
+  mode = "local",
+  outdir = "results/sample1",
+  hicpro_output = "hicpro_output",
+  sample_name = "sample1",
+  peaks = "data/sample1_peaks.bed",
+  resfrags = "data/restriction_fragments.bed",
+  normSiteFile = normsite_file,
+  FDR = 0.01,
+  min_dist = 20000,
+  max_dist = 2000000,
+  make_washu = TRUE
+)
+
+cat("Analysis completed!\n\n")
+
+# ============================================================================
+# Step 3: Load and Examine Results
+# ============================================================================
+
+# Load significant interactions
+sig_file <- "results/sample1/sample1.interaction.local.Q0.01.txt"
+if (file.exists(sig_file)) {
+  sig_interactions <- read.table(sig_file, header = TRUE)
+  cat("Found", nrow(sig_interactions), "significant interactions\n")
+  cat("\nFirst few interactions:\n")
+  print(head(sig_interactions))
+}
+
+# ============================================================================
+# Step 4: Process Multiple Samples (reuse normalization file)
+# ============================================================================
+
+samples <- c("sample2", "sample3")
+
+for (sample in samples) {
+  cat("\nProcessing", sample, "...\n")
+  
+  run_sintHiChIP(
+    mode = "local",
+    outdir = file.path("results", sample),
+    hicpro_output = "hicpro_output",
+    sample_name = sample,
+    peaks = file.path("data", paste0(sample, "_peaks.bed")),
+    resfrags = "data/restriction_fragments.bed",
+    normSiteFile = normsite_file,  # Reuse the same normalization file
+    FDR = 0.01
+  )
+}
+
+cat("\nAll samples processed successfully!\n")
 ```
 
 ## Workflow Summary
 
-1. **Data Preparation**: Ensure HiC-Pro processed data with allValidPairs files
-2. **Function Selection**: Choose appropriate function based on your needs
-3. **Parameter Configuration**: Set appropriate thresholds and file paths
-4. **Execute Processing**: Run sintHiChIP with selected function
-5. **Results Interpretation**: Process significant interactions and visualization tracks
-
-## Documentation
-
-For more detailed information, refer to the package documentation:
-
-```r
-?sintHiChIP
-?run_sintHiChIP
-```
-
-## License
-
-sintHiChIP is licensed under the GNU General Public License (GPL) v3.0. See the [LICENSE](LICENSE) file for details.
-
-## Contact
-
-For questions and feedback, please contact:
-
-Weiyue Ding  
-Harbin Institute of Technology  
-Email: wyding0501@hotmail.com
+1. **Normalization File Generation**: Use `generate_normSite_file()` to create the cut site density normalization file (one-time setup per genome/enzyme combination)
+2. **Data Preparation**: Ensure HiC-Pro processed data with allValidPairs files
+3. **Function Selection**: Choose appropriate function based on your needs
+4. **Parameter Configuration**: Set appropriate thresholds and file paths, including the generated normSiteFile
+5. **Execute Processing**: Run sintHiChIP with selected function
+6. **Results Interpretation**: Process significant interactions and visualization tracks
 
 ## Conclusion
 
