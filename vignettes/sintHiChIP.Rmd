@@ -1,3 +1,4 @@
+# sintHiChIP: Accurate and Efficient HiChIP Loop Calling with RE Density Modeling
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
@@ -168,8 +169,8 @@ sintHiChIP provides five main functions for HiChIP data processing:
 
 #### Statistical Methods:
 The function employs a dual-modeling approach:
-1. **IAB (Interaction Anchor Bias) Models**: Models actual observed interactions based on distance and site density
-2. **Combination Models**: Models all possible interactions to establish background expectations
+1. **Observed Models**: Models actual observed interactions based on distance and site density
+2. **Combo Models**: Models all possible interactions to establish background expectations
 3. **P-value Calculation**: Uses appropriate statistical tests with FDR correction for multiple testing
 
 #### Usage:
