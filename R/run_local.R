@@ -1,167 +1,211 @@
-#' Run Local Mode of sintHiChIP
+#' sintHiChIP Local Mode Interface
 #'
-#' This function executes the local mode of the sintHiChIP pipeline, which analyzes
-#' HiChIP data focusing on specific genomic regions or peaks.
+#' This file provides local mode functions for sintHiChIP.
 #'
-#' @param outdir Character string. Output directory name (folder name only, created in the same directory as the yaml file).
-#' @param yaml Character string. Name of the yaml configuration file.
-#' @param peaks Character string. Peak options ("EACH", "ALL") or file path to custom peak file.
-#' @param resfrags Character string. Path to restriction fragments file.
-#' @param hicpro_output Character string. Path to HiC-Pro output directory.
-#' @param keep_temp Logical. Whether to keep temporary files (default: FALSE).
-#' @param normSiteFile Character string. Path to normalization restriction enzyme cut site density file.
-#' @param FDR Numeric. False Discovery Rate threshold for significant interactions (default: 0.01).
-#' @param ... Additional parameters to be passed to internal functions.
-#' @return Invisible NULL. The function produces output files in the specified directory.
+#' @author sintHiChIP Development Team
+
+#' Run sintHiChIP Local Mode
+#'
+#' This function processes HiC-Pro output in local mode with peak-to-peak interactions.
+#'
+#' @param outdir Character string. Output directory for results
+#' @param hicpro_output Character string. Path to HiC-Pro output directory containing allValidPairs
+#' @param sample_name Character string. Sample identifier for file naming
+#' @param peaks Character string. Path to peak file (BED format)
+#' @param resfrags Character string. Path to restriction fragments file (BED format)
+#' @param normSiteFile Character string. Path to normalization site density file
+#' @param FDR Numeric. False Discovery Rate threshold (default: 0.01)
+#' @param min_dist Numeric. Minimum interaction distance (default: 20000)
+#' @param max_dist Numeric. Maximum interaction distance (default: 2000000)
+#' @param half_length Numeric. Read extension length (default: 73)
+#' @param no_merge Logical. Skip merging of overlapping anchors (default: FALSE)
+#' @param max_anchor_width Numeric. Maximum allowed anchor width (default: 50000)
+#' @param keep_temp Logical. Keep temporary intermediate files (default: FALSE)
+#' @param nbins Numeric. Number of bins for statistical modeling (default: 10)
+#' @param peak_pad Numeric. Peak padding in bp (default: 500)
+#' @param merge_gap Numeric. Merge gap for bedtools merge (default: 500)
+#' @param make_washu Logical. Create WashU/UCSC compatible files (default: TRUE)
+#' @return Invisible NULL. Results are written to output directory
 #' @export
 #' @examples
 #' \dontrun{
-#' run_sintHiChIP_local(
-#'   outdir = "local_analysis",
-#'   yaml = "config.yaml",
-#'   peaks = "EACH,ALL",
-#'   resfrags = "/home/user/hichip/hg19_mboi.bed",
-#'   hicpro_output = "/home/user/hichip/sample_HiCPro",
-#'   normSiteFile = "/home/user/hichip/normsite_hg19_5000.bed",
-#'   FDR = 0.01
+#' sintHiChIP_local(
+#'   outdir = "/path/to/output",
+#'   hicpro_output = "/path/to/hicpro_results",
+#'   sample_name = "sample1",
+#'   peaks = "/path/to/peaks.bed",
+#'   resfrags = "/path/to/restriction_fragments.bed",
+#'   normSiteFile = "/path/to/normsite.bed"
 #' )
 #' }
-run_sintHiChIP_local <- function(outdir, yaml = NULL, peaks = "EACH,ALL", resfrags = NULL,
-                      hicpro_output = NULL, keep_temp = FALSE, normSiteFile = NULL,
-                      FDR = 0.01, ...) {
-  # Ensure outdir is just a folder name, not a path
-  if (grepl("[/\\]", outdir)) {
-    stop("outdir should be a folder name only, not a path")
-  }
+sintHiChIP_local <- function(outdir,
+                             hicpro_output,
+                             sample_name,
+                             peaks,
+                             resfrags,
+                             normSiteFile,
+                             FDR = 0.01,
+                             min_dist = 20000,
+                             max_dist = 2000000,
+                             half_length = 73,
+                             no_merge = FALSE,
+                             max_anchor_width = 50000,
+                             keep_temp = FALSE,
+                             nbins = 10,
+                             peak_pad = 500,
+                             merge_gap = 500,
+                             make_washu = TRUE) {
   
-  # Get the directory of the yaml file
-  yaml_dir <- dirname(yaml)
-  
-  # Construct the full path for outdir
-  full_outdir <- file.path(yaml_dir, outdir)
-  # Step 1: Generate peak-to-peak (p2p) interactions
-  generate_p2p_local(yaml, peaks, resfrags, hicpro_output, outdir, keep_temp)
-
-  # Step 2: Generate significant interactions
-  compute_sig_local(full_outdir, normSiteFile, FDR, ...)
-
-  # Step 3: Generate WashU Genome Browser tracks
-  create_washu_local(full_outdir, FDR)
-
-  cat("Local mode processing completed. Output saved in:", full_outdir, "\n")
+  # Delegate to the unified interface with all parameters
+  run_sintHiChIP(
+    mode = "local",
+    outdir = outdir,
+    hicpro_output = hicpro_output,
+    sample_name = sample_name,
+    peaks = peaks,
+    resfrags = resfrags,
+    normSiteFile = normSiteFile,
+    FDR = FDR,
+    min_dist = min_dist,
+    max_dist = max_dist,
+    half_length = half_length,
+    no_merge = no_merge,
+    max_anchor_width = max_anchor_width,
+    keep_temp = keep_temp,
+    nbins = nbins,
+    peak_pad = peak_pad,
+    merge_gap = merge_gap,
+    make_washu = make_washu
+  )
 }
 
-#' Generate Peak-to-Peak Interactions for Local Mode
+#' Run sintHiChIP Local Mode with ValidPairs File
 #'
-#' This function generates peak-to-peak interactions for the local mode of sintHiChIP.
+#' Processes a single sample in sintHiChIP local mode from valid pairs to filtered loop counts,
+#' with statistical testing and WashU track generation. Sample name is derived from the
+#' valid_pairs file prefix. Accepts only allValidPairs file input.
 #'
-#' @param yaml Character string. Path to output YAML file.
-#' @param peaks Character string. Peak options or file path.
-#' @param resfrags Character string. Path to restriction fragments file.
-#' @param hicpro_output Character string. Path to HiC-Pro output directory.
-#' @param outdir Character string. Output directory name (folder name only).
-#' @param keep_temp Logical. Whether to keep temporary files.
+#' @param valid_pairs Character string. Path to the allValidPairs file
+#' @param peaks Character string. Path to the peak file (BED format)
+#' @param resfrags Character string. Path to the restriction fragments file
+#' @param normSiteFile Character string. Path to the normalization site file
+#' @param outdir Character string. Output directory
+#' @param FDR Numeric. False Discovery Rate threshold (default: 0.01)
+#' @param min_dist Integer. Minimum interaction distance (default: 20000)
+#' @param max_dist Integer. Maximum interaction distance (default: 2000000)
+#' @param half_length Numeric. Read extension length (default: 73)
+#' @param no_merge Logical. Skip anchor merging (default: FALSE)
+#' @param max_anchor_width Numeric. Maximum anchor width (default: 50000)
+#' @param nbins Numeric. Number of bins for statistical modeling (default: 10)
+#' 
 #' @return Invisible NULL
-#' @keywords internal
+#' 
 #' @examples
 #' \dontrun{
-#' generate_p2p_local(
-#'   yaml = "/home/user/hichip/config.yaml",
-#'   peaks = "EACH,ALL",
-#'   resfrags = "/home/user/hichip/restriction_fragments.bed",
-#'   hicpro_output = "/home/user/hichip/hicpro_output",
-#'   outdir = "p2p_output",
-#'   keep_temp = FALSE
+#' sintHiChIP_local_single(
+#'   valid_pairs = "/path/to/sample.allValidPairs",
+#'   peaks = "/path/to/peaks.bed",
+#'   resfrags = "/path/to/restriction_fragments.bed",
+#'   normSiteFile = "/path/to/normsite.bed",
+#'   outdir = "/path/to/output"
 #' )
 #' }
-generate_p2p_local <- function(yaml, peaks, resfrags, hicpro_output, outdir, keep_temp) {
-  # Generate YAML configuration
-  generate_hichipper_config(yaml, peaks, resfrags, hicpro_output)
-  # Run hichipper
-  execute_hichipper(yaml, outdir, keep_temp)
-}
-
-#' Compute Significant Local Interactions
-#'
-#' This function computes significant interactions for the local mode of sintHiChIP.
-#'
-#' @param outdir Character string. Output directory.
-#' @param normSiteFile Character string. Path to normalization site file.
-#' @param FDR Numeric. False Discovery Rate threshold.
-#' @param nbins Integer. Number of bins for loop calling (default: 10).
-#' @return Invisible NULL
-#' @keywords internal
-#' @examples
-#' \dontrun{
-#' compute_sig_local(
-#'   outdir = "/home/user/hichip/local_output",
-#'   normSiteFile = "/home/user/hichip/norm_sites.bed",
-#'   FDR = 0.01,
-#'   nbins = 10
-#' )
-#' }
-compute_sig_local <- function(outdir, normSiteFile, FDR = 0.01, nbins = 10) {
-  cat("Generating significant interactions for local mode.\n")
+#' 
+#' @export
+sintHiChIP_local_single <- function(valid_pairs,
+                                    peaks,
+                                    resfrags,
+                                    normSiteFile,
+                                    outdir,
+                                    FDR = 0.01,
+                                    min_dist = 20000L,
+                                    max_dist = 2000000L,
+                                    half_length = 73,
+                                    no_merge = FALSE,
+                                    max_anchor_width = 50000,
+                                    nbins = 10) {
   
-  # Find sample files and extract sample names
-  file_list <- list.files(path = outdir, pattern = "filt.intra.loop_counts.bedpe$", full.names = TRUE)
-  if (length(file_list) == 0) {
-    stop("No .filt.intra.loop_counts.bedpe files found in the specified directory")
+  # Validate inputs
+  if (!file.exists(valid_pairs)) stop("Valid pairs file not found: ", valid_pairs)
+  if (file.size(valid_pairs) == 0) stop("Valid pairs file is empty: ", valid_pairs)
+  if (!file.exists(peaks)) stop("Peak file not found: ", peaks)
+  if (!file.exists(resfrags)) stop("Restriction fragments file not found: ", resfrags)
+  if (file.size(resfrags) == 0) stop("Restriction fragments file is empty: ", resfrags)
+  if (!file.exists(normSiteFile)) stop("Normalization site file not found: ", normSiteFile)
+  if (missing(outdir) || nchar(outdir) == 0) stop("Output directory is required")
+  
+  # Derive sample name from valid_pairs file prefix
+  sample_name <- sub("\\.allValidPairs.*$", "", basename(valid_pairs))
+  if (nchar(sample_name) == 0) stop("Could not derive sample name from valid_pairs file")
+  
+  # Create temporary directory to mimic hicpro_output structure
+  temp_dir <- file.path(outdir, "temp_hicpro")
+  if (!dir.exists(temp_dir)) {
+    dir.create(temp_dir, recursive = TRUE)
   }
-  snames <- sub("\\.filt\\.intra\\.loop_counts\\.bedpe$", "", basename(file_list))
+  temp_data_dir <- file.path(temp_dir, "hic_results", "data", sample_name)
+  if (!dir.exists(temp_data_dir)) {
+    dir.create(temp_data_dir, recursive = TRUE)
+  }
+  file.copy(valid_pairs, file.path(temp_data_dir, basename(valid_pairs)))
   
-  # Process each sample
-  for (sname in snames) {
-    cat(paste("Processing sample:", sname, "\n"))
-    
-    # Call sintHiChIP_loops function
-    sintHiChIP_loops(
-      sname = sname,
-      cwd = outdir,
-      outdir = outdir,
-      normSiteFile = normSiteFile,
-      local = TRUE,
-      FDR = FDR,
-      nbins = nbins
-    )
-    
-    cat(paste("Completed processing for sample:", sname, "\n"))
+  # Validate distance parameters
+  min_dist <- as.integer(min_dist)
+  max_dist <- as.integer(max_dist)
+  
+  # Create output directory
+  if (!dir.exists(outdir)) {
+    dir.create(outdir, recursive = TRUE)
   }
   
-  cat("Completed generating significant interactions for all samples.\n")
-}
-
-#' Create Local WashU Genome Browser Tracks
-#'
-#' This function creates WashU Genome Browser tracks for the local mode of sintHiChIP.
-#'
-#' @param outdir Character string. Output directory.
-#' @param FDR Numeric. False Discovery Rate threshold.
-#' @return Invisible NULL
-#' @keywords internal
-create_washu_local <- function(outdir, FDR) {
-  cat("Generating WashU Genome Browser tracks for local mode.\n")
+  cat("=== sintHiChIP Local Mode ===\n")
+  cat("Sample:", sample_name, "\n")
   
-  # Find sample files
-  file_list <- list.files(path = outdir, pattern = paste0("interaction.Q", FDR, ".txt$"), full.names = TRUE)
+  # Step 1: Core processing
+  cat("Step 1: Core processing (allValidPairs to filtered interactions)...\n")
+  bedpe_file <- local_process_exec(
+    hicpro_output = temp_dir,
+    sample_name = sample_name,
+    peak_file = peaks,
+    resfrags_file = resfrags,
+    output_dir = outdir,
+    min_dist = min_dist,
+    max_dist = max_dist,
+    half_length = half_length,
+    peak_pad = 500,
+    merge_gap = 500,
+    no_merge = no_merge,
+    max_anchor_width = max_anchor_width
+  )
   
-  for (input_file in file_list) {
-    sname <- sub(paste0("\\.interaction\\.Q", FDR, "\\.txt$"), "", basename(input_file))
-    output_file <- file.path(outdir, paste0(sname, ".interaction.Q", FDR, ".washu.txt"))
-    
-    # Create WashU compatible file
-    awk_command <- "awk '{print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\":\"$5\"-\"$6\",\"$7\"\\t\"(NR*2-1)\"\\t.\\n\"$4\"\\t\"$5\"\\t\"$6\"\\t\"$1\":\"$2\"-\"$3\",\"$7\"\\t\"(NR*2)\"\\t.\"}'"
-    
-    if (Sys.info()['sysname'] == "Darwin") {
-      system2("sh", args = c("-c", paste(awk_command, input_file, "| sort -k1,1 -k2,2n >", output_file)))
-    } else {
-      system(paste(awk_command, input_file, "| bedtools sort >", output_file))
-    }
-    
-    # Compress and index the output file
-    system2("bgzip", args = c("-f", output_file))
-    system2("tabix", args = c("-p", "bed", paste0(output_file, ".gz")))
-    
-    cat("Completed WashU track creation for sample:", sname, "\n")
+  # Verify output
+  if (!file.exists(bedpe_file)) stop("Output file not created: ", bedpe_file)
+  if (file.size(bedpe_file) == 0) {
+    warning("Output file is empty: ", bedpe_file)
+    cat("Local mode workflow completed with empty results\n")
+    unlink(temp_dir, recursive = TRUE)
+    return(invisible(NULL))
   }
+  
+  # Step 2: Statistical significance testing
+  cat("Step 2: Running statistical significance testing...\n")
+  sintHiChIP_sigloops(
+    sname = sample_name,
+    cwd = outdir,
+    outdir = outdir,
+    normSiteFile = normSiteFile,
+    local = TRUE,
+    FDR = FDR,
+    nbins = nbins
+  )
+  
+  # Step 3: Generate WashU genome browser tracks
+  cat("Step 3: Generating WashU genome browser tracks...\n")
+  sintHiChIP_make_washu(outdir, FDR, sample_name, mode = "local")
+  
+  # Clean up temporary directory
+  unlink(temp_dir, recursive = TRUE)
+  
+  cat("Local mode completed for", sample_name, "!\n")
+  invisible(NULL)
 }

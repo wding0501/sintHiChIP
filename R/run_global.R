@@ -1,130 +1,185 @@
-#' Run Global Mode of sintHiChIP
+#' sintHiChIP Global Mode Interface
 #'
-#' This function executes the global mode of the sintHiChIP pipeline, which processes
-#' HiChIP data to identify significant chromatin interactions across the entire genome.
+#' This file provides global mode functions for sintHiChIP.
 #'
-#' @param outdir Character string. Full path to the output directory for global mode results.
-#' @param valid_pairs Character string. Path to the valid pairs file from HiC-Pro.
-#' @param chr_size Character string. Path to the chromosome size file.
-#' @param build_matrix Character string. Path to the build matrix tool (typically from HiC-Pro).
-#' @param bin_size Numeric. Bin size for matrix generation (default: 5000 bp).
-#' @param peaks Character string. Path to the peak file (e.g., from MACS2).
-#' @param normSiteFile Character string. Path to normalization restriction enzyme cut site density file.
-#' @param FDR Numeric. False Discovery Rate threshold for significant interactions (default: 0.01).
-#' @return Invisible NULL. The function generates output files in the specified directory.
+#' @author sintHiChIP Development Team
+
+#' Run sintHiChIP Global Mode
+#'
+#' This function processes HiC-Pro output in global mode with peak-to-all interactions.
+#'
+#' @param outdir Character string. Output directory for global mode results
+#' @param hicpro_output Character string. Path to HiC-Pro output directory containing allValidPairs
+#' @param sample_name Character string. Sample identifier for file naming
+#' @param peaks Character string. Path to the peak file (e.g., from MACS2)
+#' @param chr_size Character string. Path to the chromosome size file
+#' @param build_matrix Character string. Path to the build matrix tool (from HiC-Pro)
+#' @param bin_size Numeric. Bin size for matrix generation (default: 5000 bp)
+#' @param normSiteFile Character string. Path to normalization restriction enzyme cut site density file
+#' @param FDR Numeric. False Discovery Rate threshold (default: 0.01)
+#' @param min_dist Numeric. Minimum distance threshold (default: 20000)
+#' @param max_dist Numeric. Maximum distance threshold (default: 2000000)
+#' @param keep_temp Logical. Keep temporary intermediate files (default: FALSE)
+#' @return Invisible NULL. Results are written to output directory
 #' @export
 #' @examples
 #' \dontrun{
-#' run_sintHiChIP_global(
+#' sintHiChIP_global(
 #'   outdir = "/home/user/hichip/global_output",
-#'   valid_pairs = "/home/user/hichip/sample_valid_pairs.txt",
+#'   hicpro_output = "/home/user/hicpro_results",
+#'   sample_name = "sample1",
+#'   peaks = "/home/user/hichip/sample_peaks.bed",
 #'   chr_size = "/home/user/hichip/chrom_sizes.txt",
 #'   build_matrix = "/home/user/hichip/build_matrix",
-#'   bin_size = 5000,
-#'   peaks = "/home/user/hichip/sample_peaks.bed",
-#'   normSiteFile = "/home/user/hichip/norm_sites.bed",
-#'   FDR = 0.01
+#'   normSiteFile = "/home/user/hichip/norm_sites.bed"
 #' )
 #' }
-run_sintHiChIP_global <- function(outdir, valid_pairs, chr_size, build_matrix, bin_size = 5000,
-                                  peaks, normSiteFile, FDR = 0.01) {
-  prefix <- tools::file_path_sans_ext(basename(valid_pairs))
+sintHiChIP_global <- function(outdir,
+                              hicpro_output,
+                              sample_name,
+                              peaks,
+                              chr_size,
+                              build_matrix,
+                              bin_size = 5000,
+                              normSiteFile,
+                              FDR = 0.01,
+                              min_dist = 20000,
+                              max_dist = 2000000,
+                              keep_temp = FALSE) {
   
-  # Step 1: Binning interactions and generating matrix
-  create_hichip_matrix_global(valid_pairs, chr_size, build_matrix, outdir, bin_size, prefix = prefix)
-  
-  # Step 2: Generating interactions file with distance filtered
-  filter_intra_global(outdir, bin_size, prefix)
-  interaction_file <- file.path(outdir, paste0(prefix, ".all.intra.loop_counts.bedpe"))
-  # Step 3: Peak overlapped interactions
-  overlap_peaks_global(peaks, interaction_file, outdir, prefix)
-  # Step 4: Normalization and significance testing
-  identify_sig_global_loops(outdir, normSiteFile, FDR, prefix)
-  
-  # Step 5: Formatting results for WashU Epigenome Browser
-  create_washu_global(outdir, FDR, prefix)
-  
-  cat("Global mode processing completed.\n")
-  
-  invisible(NULL)
+  # Delegate to the unified interface
+  run_sintHiChIP(
+    mode = "global",
+    outdir = outdir,
+    hicpro_output = hicpro_output,
+    sample_name = sample_name,
+    peaks = peaks,
+    chr_size = chr_size,
+    build_matrix = build_matrix,
+    bin_size = bin_size,
+    normSiteFile = normSiteFile,
+    FDR = FDR,
+    min_dist = min_dist,
+    max_dist = max_dist,
+    keep_temp = keep_temp
+  )
 }
-#' Filter Interactions for Global Analysis
+
+#' Run sintHiChIP Global Mode with ValidPairs File
 #'
-#' This function filters interactions based on distance thresholds for global analysis in sintHiChIP.
+#' Processes a single sample in sintHiChIP global mode from valid pairs to filtered interactions,
+#' with statistical testing and WashU track generation. Sample name is derived from the
+#' valid_pairs file prefix. Accepts only allValidPairs file input.
 #'
-#' @param outdir Character string. Output directory.
-#' @param bin_size Numeric. Bin size used for matrix generation.
-#' @param prefix Character string. Prefix for output files.
+#' @param valid_pairs Character string. Path to the allValidPairs file
+#' @param peaks Character string. Path to the peak file (BED format)
+#' @param chr_size Character string. Path to chromosome sizes file
+#' @param build_matrix Character string. Path to build matrix tool
+#' @param normSiteFile Character string. Path to the normalization site file
+#' @param outdir Character string. Output directory
+#' @param bin_size Numeric. Bin size for matrix generation (default: 5000)
+#' @param FDR Numeric. False Discovery Rate threshold (default: 0.01)
+#' @param min_dist Integer. Minimum interaction distance (default: 20000)
+#' @param max_dist Integer. Maximum interaction distance (default: 2000000)
+#' @param nbins Numeric. Number of bins for statistical modeling (default: 10)
+#' @param keep_temp Logical. Keep temporary files (default: FALSE)
+#' 
 #' @return Invisible NULL
-#' @keywords internal
+#' 
 #' @examples
 #' \dontrun{
-#' filter_intra_global(
-#'   outdir = "/home/user/hichip/global_output",
-#'   bin_size = 5000,
-#'   prefix = "sample1"
+#' sintHiChIP_global_single(
+#'   valid_pairs = "/path/to/sample.allValidPairs",
+#'   peaks = "/path/to/peaks.bed",
+#'   chr_size = "/path/to/chrom_sizes.txt",
+#'   build_matrix = "/path/to/build_matrix",
+#'   normSiteFile = "/path/to/normsite.bed",
+#'   outdir = "/path/to/output"
 #' )
 #' }
-filter_intra_global <- function(outdir, bin_size, prefix) {
-  BinIntervalFile <- file.path(outdir, paste0(prefix, "_abs.bed"))
-  MatrixFile <- file.path(outdir, paste0(prefix, ".matrix"))
-  Interaction_Initial_File <- file.path(outdir, paste0(prefix, ".interactions.initial.bed"))
-  Interaction_File <- file.path(outdir, paste0(prefix, ".all.intra.loop_counts.bedpe"))
+#' 
+#' @export
+sintHiChIP_global_single <- function(valid_pairs,
+                                     peaks,
+                                     chr_size,
+                                     build_matrix,
+                                     normSiteFile,
+                                     outdir,
+                                     bin_size = 5000,
+                                     FDR = 0.01,
+                                     min_dist = 20000L,
+                                     max_dist = 2000000L,
+                                     nbins = 10,
+                                     keep_temp = FALSE) {
   
-  filter_distance_global(BinIntervalFile, MatrixFile, Interaction_Initial_File, Interaction_File, 20000, 2000000)
-}
-
-#' Identify Significant Global Loops
-#'
-#' This function identifies significant loops in the global analysis of sintHiChIP.
-#'
-#' @param outdir Character string. Output directory.
-#' @param normSiteFile Character string. Path to normalization site file.
-#' @param FDR Numeric. False Discovery Rate threshold.
-#' @param prefix Character string. Prefix for output files.
-#' @return Invisible NULL
-#' @keywords internal
-#' @examples
-#' \dontrun{
-#' identify_sig_global_loops(
-#'   outdir = "/home/user/hichip/global_output",
-#'   normSiteFile = "/home/user/hichip/norm_sites.bed",
-#'   FDR = 0.01,
-#'   prefix = "sample1"
-#' )
-#' }
-identify_sig_global_loops <- function(outdir, normSiteFile, FDR, prefix) {
-  sintHiChIP_loops(prefix, outdir, outdir, normSiteFile, FALSE, FDR, 10)
-}
-
-
-#' Create Global WashU Genome Browser Tracks
-#'
-#' This function creates WashU Genome Browser tracks for the global mode of sintHiChIP.
-#'
-#' @param outdir Character string. Output directory.
-#' @param FDR Numeric. False Discovery Rate threshold.
-#' @param prefix Character string. Prefix for output files.
-#' @return Invisible NULL
-#' @keywords internal
-create_washu_global <- function(outdir, FDR, prefix) {
-  cat("Generating WashU Genome Browser track for global mode.\n")
+  # Validate inputs
+  if (!file.exists(valid_pairs)) stop("Valid pairs file not found: ", valid_pairs)
+  if (file.size(valid_pairs) == 0) stop("Valid pairs file is empty: ", valid_pairs)
+  if (!file.exists(peaks)) stop("Peak file not found: ", peaks)
+  if (!file.exists(chr_size)) stop("Chromosome sizes file not found: ", chr_size)
+  if (!file.exists(build_matrix)) stop("Build matrix tool not found: ", build_matrix)
+  if (!file.exists(normSiteFile)) stop("Normalization site file not found: ", normSiteFile)
+  if (missing(outdir) || nchar(outdir) == 0) stop("Output directory is required")
   
-  input_file <- file.path(outdir, paste0(prefix, ".interaction.Q", FDR, ".txt"))
-  output_file <- file.path(outdir, paste0(prefix, ".interaction.Q", FDR, ".washu.txt"))
+  # Derive sample name from valid_pairs file prefix
+  sample_name <- sub("\\.allValidPairs.*$", "", basename(valid_pairs))
+  if (nchar(sample_name) == 0) stop("Could not derive sample name from valid_pairs file")
   
-  # Create WashU compatible file
-  awk_command <- "awk '{print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\":\"$5\"-\"$6\",\"$7\"\\t\"(NR*2-1)\"\\t.\\n\"$4\"\\t\"$5\"\\t\"$6\"\\t\"$1\":\"$2\"-\"$3\",\"$7\"\\t\"(NR*2)\"\\t.\"}'"
+  # Validate distance parameters
+  min_dist <- as.integer(min_dist)
+  max_dist <- as.integer(max_dist)
   
-  if (Sys.info()['sysname'] == "Darwin") {
-    system2("sh", args = c("-c", paste(awk_command, input_file, "| sort -k1,1 -k2,2n >", output_file)))
-  } else {
-    system(paste(awk_command, input_file, "| bedtools sort >", output_file))
+  # Create output directory
+  if (!dir.exists(outdir)) {
+    dir.create(outdir, recursive = TRUE)
   }
   
-  # Compress and index the output file
-  system2("bgzip", args = c("-f", output_file))
-  system2("tabix", args = c("-p", "bed", paste0(output_file, ".gz")))
+  cat("=== sintHiChIP Global Mode ===\n")
+  cat("Sample:", sample_name, "\n")
+  cat("Bin size:", bin_size, "| FDR:", FDR, "\n")
+  cat("Distance filter:", min_dist, "-", max_dist, "bp\n")
   
-  cat("Completed WashU track creation for sample:", prefix, "\n")
+  # Step 1: Fast matrix generation and peak filtering using pipeline
+  cat("Step 1: Fast matrix generation and peak filtering...\n")
+  result <- global_process_exec(
+    valid_pairs_file = valid_pairs,
+    sample_name = sample_name,
+    peaks_file = peaks,
+    chr_size_file = chr_size,
+    build_matrix_tool = build_matrix,
+    output_dir = outdir,
+    bin_size = bin_size,
+    min_dist = min_dist,
+    max_dist = max_dist,
+    target_chunks = 10,
+    keep_temp = keep_temp
+  )
+  
+  if (!file.exists(result)) {
+    stop("Fast pipeline failed to generate output file")
+  }
+  
+  # Step 2: Perform statistical significance testing
+  cat("Step 2: Statistical significance testing...\n")
+  sintHiChIP_sigloops(
+    sname = sample_name,
+    cwd = outdir,
+    outdir = outdir,
+    normSiteFile = normSiteFile,
+    local = FALSE,  # Global mode flag
+    FDR = FDR,
+    nbins = nbins
+  )
+  
+  # Step 3: Generate visualization tracks
+  cat("Step 3: Generating WashU browser tracks...\n")
+  sintHiChIP_make_washu(outdir, FDR, sample_name, mode = "global")
+  
+  # Step 4: Clean up temporary files if requested
+  if (!keep_temp) {
+    sintHiChIP_clean_temp(outdir)
+  }
+  
+  cat("Global mode completed for", sample_name, "!\n")
+  invisible(NULL)
 }

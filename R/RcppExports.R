@@ -5,7 +5,7 @@ model_hichip <- function(x, y = NULL, borders = as.numeric( c()), yvals = TRUE) 
     .Call(`_sintHiChIP_model_hichip`, x, y, borders, yvals)
 }
 
-makecombos <- function(chrom, chrpeaks, mindist = 0, maxdist = 100000000) {
+makecombos <- function(chrom, chrpeaks, mindist = 0L, maxdist = 100000000L) {
     .Call(`_sintHiChIP_makecombos`, chrom, chrpeaks, mindist, maxdist)
 }
 
