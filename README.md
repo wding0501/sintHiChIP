@@ -1,12 +1,3 @@
----
-title: "sintHiChIP: detecting significant HiChIP interactions with cut site density correction"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{sintHiChIP: detecting significant HiChIP interactions with cut site density correction}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
-
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
