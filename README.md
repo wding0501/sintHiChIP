@@ -86,12 +86,12 @@ devtools::install_github("wding0501/sintHiChIP")
 
 Before running sintHiChIP analysis, you need to generate a normalization file that accounts for restriction enzyme cut site density across the genome.
 
-### generate_normSite_file()
+### normSite.R
 
-This function creates the normalization file required for cut site density correction:
+This R script creates the normalization file required for cut site density correction:
 
 ```r
-library(sintHiChIP)
+source("normSite.R)
 
 # Generate normalization file for mouse genome
 normsite_file <- generate_normSite_file(
@@ -420,7 +420,7 @@ library(sintHiChIP)
 # ============================================================================
 # Step 1: Generate Normalization File (one-time setup per genome/enzyme)
 # ============================================================================
-
+source("normSite.R)
 cat("Generating normalization file...\n")
 normsite_file <- generate_normSite_file(
   bed_file = "data/mm10_mboi.bed",
