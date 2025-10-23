@@ -1,12 +1,3 @@
----
-title: "sintHiChIP: detecting significant HiChIP interactions with cut site density correction"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{sintHiChIP: detecting significant HiChIP interactions with cut site density correction}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
-
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
@@ -95,24 +86,7 @@ devtools::install_github("wding0501/sintHiChIP")
 
 Before running sintHiChIP analysis, you need to generate a normalization file that accounts for restriction enzyme cut site density across the genome.
 
-### generate_normSite_file()
-
-This function creates the normalization file required for cut site density correction:
-
-```r
-library(sintHiChIP)
-
-# Generate normalization file for mouse genome
-normsite_file <- generate_normSite_file(
-  bed_file = "mm10_mboi.bed",
-  species = "mouse",
-  variance = 100000,
-  binsize = 5000,
-  output_dir = "./normalization",
-  use_parallel = TRUE,
-  ncores = NULL
-)
-```
+### Creates the normalization file required for cut site density correction:
 
 #### Parameters:
 - **bed_file**: Path to restriction enzyme cut site BED file (required)
@@ -432,20 +406,17 @@ library(sintHiChIP)
 # ============================================================================
 # Step 1: Generate Normalization File (one-time setup per genome/enzyme)
 # ============================================================================
+BED_FILE <- "hg38_mboi.bed"
+GENOME_BUILD <- "hg38"
+BIN_SIZE <- 5000
+USE_PARALLEL <- TRUE
 
-cat("Generating normalization file...\n")
-normsite_file <- generate_normSite_file(
-  bed_file = "data/mm10_mboi.bed",
-  species = "mouse",
-  variance = 100000,
-  binsize = 5000,
-  output_dir = "normalization",
-  use_parallel = TRUE,
-  ncores = 8
-)
+**Run:**
+```bash
+Rscript normSite.R
+```
 
-cat("Normalization file created:", normsite_file, "\n\n")
-
+**Output：** `normsite_hg19_mboi_5000.tmp`
 # ============================================================================
 # Step 2: Run sintHiChIP Analysis
 # ============================================================================
