@@ -1,3 +1,12 @@
+---
+title: "sintHiChIP: detecting significant HiChIP interactions with cut site density correction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sintHiChIP: detecting significant HiChIP interactions with cut site density correction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
@@ -86,7 +95,24 @@ devtools::install_github("wding0501/sintHiChIP")
 
 Before running sintHiChIP analysis, you need to generate a normalization file that accounts for restriction enzyme cut site density across the genome.
 
-### Creates the normalization file required for cut site density correction:
+### generate_normSite_file()
+
+This function creates the normalization file required for cut site density correction:
+
+```r
+library(sintHiChIP)
+
+# Generate normalization file for mouse genome
+normsite_file <- generate_normSite_file(
+  bed_file = "mm10_mboi.bed",
+  species = "mouse",
+  variance = 100000,
+  binsize = 5000,
+  output_dir = "./normalization",
+  use_parallel = TRUE,
+  ncores = NULL
+)
+```
 
 #### Parameters:
 - **bed_file**: Path to restriction enzyme cut site BED file (required)
@@ -99,34 +125,31 @@ Before running sintHiChIP analysis, you need to generate a normalization file th
 
 #### Examples for different species:
 
-**For Mouse (mm10):**
 ```r
-setwd("/path/to/data")
-BED_FILE <- "mm10_mboi.bed"
-GENOME_BUILD <- "mm10"
-BIN_SIZE <- 5000
-USE_PARALLEL <- TRUE
-NCORES <- 8
-```
+# Mouse genome (mm10)
+normsite_mouse <- generate_normSite_file(
+  bed_file = "mm10_mboi.bed",
+  species = "mouse",
+  binsize = 5000,
+  output_dir = "./normalization"
+)
 
-**For Human (hg38):**
-```r
-setwd("/path/to/data")
-BED_FILE <- "hg38_mboi.bed"
-GENOME_BUILD <- "hg38"
-BIN_SIZE <- 5000
-USE_PARALLEL <- TRUE
-NCORES <- 8
-```
+# Human genome (hg38)
+normsite_human <- generate_normSite_file(
+  bed_file = "hg38_mboi.bed",
+  species = "human",
+  binsize = 5000,
+  output_dir = "./normalization"
+)
 
-**Run:**
-```bash
-Rscript normSite.R
+# Rat genome
+normsite_rat <- generate_normSite_file(
+  bed_file = "rn6_mboi.bed",
+  species = "rat",
+  binsize = 5000,
+  output_dir = "./normalization"
+)
 ```
-
-**Output:**
-- Mouse: `normsite_mm10_mboi_5000.tmp`
-- Human: `normsite_hg38_mboi_5000.tmp`
 
 #### Output:
 The function generates a file named `normsite_{filename}_{species}_{binsize}_turbo.tmp` containing:
@@ -406,17 +429,20 @@ library(sintHiChIP)
 # ============================================================================
 # Step 1: Generate Normalization File (one-time setup per genome/enzyme)
 # ============================================================================
-BED_FILE <- "hg38_mboi.bed"
-GENOME_BUILD <- "hg38"
-BIN_SIZE <- 5000
-USE_PARALLEL <- TRUE
 
-**Run:**
-```bash
-Rscript normSite.R
-```
+cat("Generating normalization file...\n")
+normsite_file <- generate_normSite_file(
+  bed_file = "data/mm10_mboi.bed",
+  species = "mouse",
+  variance = 100000,
+  binsize = 5000,
+  output_dir = "normalization",
+  use_parallel = TRUE,
+  ncores = 8
+)
 
-**Output：** `normsite_hg19_mboi_5000.tmp`
+cat("Normalization file created:", normsite_file, "\n\n")
+
 # ============================================================================
 # Step 2: Run sintHiChIP Analysis
 # ============================================================================
@@ -484,6 +510,7 @@ cat("\nAll samples processed successfully!\n")
 4. **Parameter Configuration**: Set appropriate thresholds and file paths, including the generated normSiteFile
 5. **Execute Processing**: Run sintHiChIP with selected function
 6. **Results Interpretation**: Process significant interactions and visualization tracks
+
 
 ## Conclusion
 
