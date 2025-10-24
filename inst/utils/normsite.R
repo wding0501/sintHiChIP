@@ -299,42 +299,38 @@ normSite <- function(variance = 100000, resSites, GenomeBin, SeqName, binsize,
     return(GrangeSite)
 }
 
-#' Preprocess BED file with optimized data.table operations
+#' Preprocess BED File for normSite Analysis
 #' 
-#' @param bed_file Path to input BED file
-#' @param target_chroms Character vector of target chromosome names
-#' @return List containing processed data.table and valid chromosomes
+#' Reads and preprocesses a BED format file containing restriction enzyme cut sites.
+#' Only retains the first 3 columns (chr, start, end) and filters for target chromosomes.
+#' 
+#' @param bed_file Path to the input BED file
+#' @param target_chroms Target chromosome names to retain
+#' @return List with data (data.table) and valid_chromosomes (character vector)
+#' 
+#' @export
 preprocess_bed_file <- function(bed_file, target_chroms) {
+    
     cat("Reading BED file:", bed_file, "\n")
     
-    # Use data.table's fread for fast reading
-    dt <- fread(bed_file, header = FALSE, col.names = c("chr", "start", "end"))
+    # Read first 3 columns only
+    dt <- fread(
+        bed_file, 
+        select = 1:3,
+        col.names = c("chr", "start", "end"),
+        showProgress = FALSE,
+        header = FALSE
+    )
     
-    initial_rows <- nrow(dt)
-    cat("Initial rows:", initial_rows, "\n")
+    # Filter for target chromosomes
+    valid_chroms <- intersect(unique(dt$chr), target_chroms)
+    dt <- dt[chr %in% valid_chroms]
     
-    # Filter for target chromosomes (vectorized operation)
-    dt <- dt[chr %in% target_chroms]
-    
-    filtered_rows <- nrow(dt)
-    cat("Rows after chromosome filtering:", filtered_rows, "\n")
-    
-    if (filtered_rows == 0) {
-        stop("No data remaining after filtering for target chromosomes")
-    }
-    
-    # Get valid chromosomes in order
-    valid_chroms <- unique(dt$chr)
-    valid_chroms <- valid_chroms[order(match(valid_chroms, target_chroms))]
-    
-    cat("Valid chromosomes found:", length(valid_chroms), "\n")
-    cat("Chromosomes:", paste(valid_chroms, collapse = ", "), "\n")
-    
-    # Convert chr to factor for efficient sorting
-    dt[, chr := factor(chr, levels = valid_chroms)]
-    
-    # Sort by chromosome and position
+    # Sort by genomic coordinates
     setorder(dt, chr, start)
+    
+    cat("Total rows read:", nrow(dt), "\n")
+    cat("Chromosomes retained:", paste(valid_chroms, collapse = ", "), "\n")
     
     return(list(
         data = dt,
