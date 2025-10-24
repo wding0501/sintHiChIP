@@ -115,7 +115,7 @@ normsite_file <- generate_normSite_file(
 - **use_parallel**: Enable parallel processing (default: TRUE)
 - **ncores**: Number of cores for parallel processing (default: NULL for auto-detection)
 
-#### Examples for different species:
+#### Examples for Different Species:
 
 ```r
 # Mouse genome (mm10)
