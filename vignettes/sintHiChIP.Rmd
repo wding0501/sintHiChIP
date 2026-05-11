@@ -1,10 +1,11 @@
-# sintHiChIP: Accurate and Efficient HiChIP Loop Calling with RE Density Modeling
+# sintHiChIP: Accurate and Efficient HiChIP Interaction Detection by Modeling Restriction Enzyme Cut Site Density as Biological Signal
+
 ## Introduction
 
 **Authors:** Weiyue Ding (wyding0501@hotmail.com)  
 **Affiliation:** Harbin Institute of Technology
 
-sintHiChIP is a comprehensive R package designed for the processing of HiChIP data, offering both local and global modes of operation. By employing cut site density correction, sintHiChIP facilitates the identification and characterization of significant chromatin interactions from HiChIP experiments.
+sintHiChIP is a comprehensive R package designed for the processing of HiChIP data. By explicitly modeling restriction enzyme (RE) cut site density as a biological signal rather than a technical bias, sintHiChIP integrates Gaussian kernel smoothing with distance-dependent statistics to identify significant chromatin interactions, including both peak-to-peak (P2P) and peak-to-non-peak (P2N) loops. The package employs adaptive probability distributions (binomial, negative binomial, or Poisson) to resolve inherent data overdispersion and sparsity dynamically.
 
 ## Platform
 
@@ -30,28 +31,20 @@ Before installing and using sintHiChIP, ensure you have the following software a
    - Installation: Comes with tabix
 
 5. build_matrix utility
-   - Required for matrix generation in global mode
+   - Required for matrix generation
    - Can be obtained from HiC-Pro utilities (version 3.1.0 or higher)
    - Alternative implementations may also be compatible
    - Must be executable and accessible in system PATH or specified directly
 
 ### Input Data Requirements
 
-sintHiChIP requires pre-processed HiChIP data from HiC-Pro pipeline. The package expects data in HiC-Pro output format:
+sintHiChIP requires pre-processed HiChIP data from the HiC-Pro pipeline. The package expects data in HiC-Pro output format:
 
-1. **Common Requirements (Both Modes):**
    - HiC-Pro output directory containing allValidPairs files
    - Peak files in BED format (from MACS2 or similar peak callers)
-   - Normalization restriction enzyme cut site density file (generated using `generate_normSite_file()` function, see [Generating Normalization Files](#generating-normalization-files) section)
-
-2. **Local Mode Specific:**
-   - Restriction fragment information in BED format
-   - Peak-to-peak interaction within defined genomic regions
-
-3. **Global Mode Specific:**
    - Chromosome size file
    - build_matrix utility for matrix generation
-   - Genome-wide matrix-based interaction
+   - Normalization restriction enzyme cut site density file (generated using `generate_normSite_file()` function, see [Generating Normalization Files](#generating-normalization-files) section)
 
 ### Required R Packages
 
@@ -154,9 +147,40 @@ The function generates a file named `normsite_{filename}_{species}_{binsize}_tur
 
 ## Main Functions
 
-sintHiChIP provides five main functions for HiChIP data processing:
+sintHiChIP provides the following main functions for HiChIP data processing:
 
-### 1. sintHiChIP_sigloops - Statistical Significance Testing
+### 1. run_sintHiChIP
+
+The primary interface for sintHiChIP processing:
+
+```r
+library(sintHiChIP)
+
+# Step 1: Generate normalization file (do this once)
+normsite_file <- generate_normSite_file(
+  bed_file = "mm10_mboi.bed",
+  species = "mouse",
+  binsize = 5000,
+  output_dir = "./normalization"
+)
+
+# Step 2: Run sintHiChIP analysis
+run_sintHiChIP(
+  outdir = "/path/to/output",
+  hicpro_output = "/path/to/hicpro_results",
+  sample_name = "sample1",
+  peaks = "/path/to/peaks.bed",
+  chr_size = "/path/to/chrom_sizes.txt",
+  build_matrix = "/path/to/build_matrix",
+  normSiteFile = normsite_file,
+  bin_size = 5000,
+  FDR = 0.01,
+  min_dist = 20000,
+  max_dist = 2000000
+)
+```
+
+### 2. sintHiChIP_sigloops - Statistical Significance Testing
 
 **`sintHiChIP_sigloops`** is the core statistical engine of the package, responsible for identifying statistically significant chromatin interactions from HiChIP data. This function implements sophisticated statistical modeling with cut site density correction to distinguish genuine interactions from background noise.
 
@@ -180,7 +204,6 @@ sintHiChIP_sigloops(
   cwd = "/path/to/data",
   outdir = "/path/to/output", 
   normSiteFile = "/path/to/norm_sites.bed",
-  local = TRUE,  # TRUE for local mode, FALSE for global mode
   FDR = 0.01,
   nbins = 10
 )
@@ -191,89 +214,16 @@ sintHiChIP_sigloops(
 - **cwd**: Working directory containing processed interaction data
 - **outdir**: Output directory for results
 - **normSiteFile**: BED format file with restriction enzyme cut site density
-- **local**: Processing mode (TRUE for peak-to-peak, FALSE for peak-to-all)
 - **FDR**: False Discovery Rate threshold for significance testing
 - **nbins**: Number of bins for distance and site density modeling
 
 #### Outputs:
-- Significant interactions file: `{sample}.interaction.{mode}.Q{FDR}.txt`
+- Significant interactions file: `{sample}.interaction.global.Q{FDR}.txt`
 - Contains genomic coordinates and statistical measures for significant loops
 
-### 2. run_sintHiChIP
+### 3. sintHiChIP_global
 
-The primary interface for sintHiChIP processing, supporting both local and global modes:
-
-```r
-library(sintHiChIP)
-
-# Step 1: Generate normalization file (do this once)
-normsite_file <- generate_normSite_file(
-  bed_file = "mm10_mboi.bed",
-  species = "mouse",
-  binsize = 5000,
-  output_dir = "./normalization"
-)
-
-# Step 2: Local mode processing
-run_sintHiChIP(
-  mode = "local",
-  outdir = "/path/to/output",
-  hicpro_output = "/path/to/hicpro_results",
-  sample_name = "sample1",
-  peaks = "/path/to/peaks.bed",
-  resfrags = "/path/to/restriction_fragments.bed",
-  normSiteFile = normsite_file,  # Use generated file
-  FDR = 0.01,
-  min_dist = 20000,
-  max_dist = 2000000
-)
-
-# Step 3: Global mode processing
-run_sintHiChIP(
-  mode = "global",
-  outdir = "/path/to/output",
-  hicpro_output = "/path/to/hicpro_results",
-  sample_name = "sample1",
-  peaks = "/path/to/peaks.bed",
-  chr_size = "/path/to/chrom_sizes.txt",
-  build_matrix = "/path/to/build_matrix",
-  normSiteFile = normsite_file,  # Use the same generated file
-  bin_size = 5000,
-  FDR = 0.01,
-  min_dist = 20000,
-  max_dist = 2000000
-)
-```
-
-### 3. sintHiChIP_local_mode
-
-Specialized function for local mode processing with peak-to-peak interactions:
-
-```r
-sintHiChIP_local(
-  outdir = "/path/to/local_output",
-  hicpro_output = "/path/to/hicpro_results",
-  sample_name = "sample1",
-  peaks = "/path/to/peaks.bed",
-  resfrags = "/path/to/restriction_fragments.bed",
-  normSiteFile = "/path/to/norm_sites.bed",
-  FDR = 0.01,
-  min_dist = 20000,
-  max_dist = 2000000,
-  half_length = 73,
-  no_merge = FALSE,
-  max_anchor_width = 50000,
-  keep_temp = FALSE,
-  nbins = 10,
-  peak_pad = 500,
-  merge_gap = 500,
-  make_washu = TRUE
-)
-```
-
-### 4. sintHiChIP_global_mode
-
-Specialized function for global mode processing with genome-wide matrix-based interactions:
+Specialized function for genome-wide matrix-based interaction processing:
 
 ```r
 sintHiChIP_global(
@@ -292,30 +242,9 @@ sintHiChIP_global(
 )
 ```
 
-### 5. sintHiChIP_local_single
+### 4. sintHiChIP_global_single
 
-Direct local mode processing using allValidPairs file:
-
-```r
-sintHiChIP_local_single(
-  valid_pairs = "/path/to/sample1.allValidPairs",
-  peaks = "/path/to/peaks.bed",
-  resfrags = "/path/to/restriction_fragments.bed",
-  normSiteFile = "/path/to/norm_sites.bed",
-  outdir = "/path/to/local_output",
-  FDR = 0.01,
-  min_dist = 20000,
-  max_dist = 2000000,
-  half_length = 73,
-  no_merge = FALSE,
-  max_anchor_width = 50000,
-  nbins = 10
-)
-```
-
-### 6. sintHiChIP_global_single
-
-Direct global mode processing using allValidPairs file:
+Direct processing using allValidPairs file, useful when you want to specify exact file paths or have non-standard directory structures:
 
 ```r
 sintHiChIP_global_single(
@@ -339,41 +268,27 @@ sintHiChIP_global_single(
 ### When to use each function:
 
 - **run_sintHiChIP()**: Main interface function, recommended for most users
-- **sintHiChIP_local_mode()** or **sintHiChIP_global_mode()**: When you have standard HiC-Pro output structure and want mode-specific functionality
-- **sintHiChIP_local_single()** or **sintHiChIP_global_single()**: When you want to specify exact allValidPairs file paths or have non-standard directory structures
+- **sintHiChIP_global()**: When you have standard HiC-Pro output structure
+- **sintHiChIP_global_single()**: When you want to specify exact allValidPairs file paths or have non-standard directory structures
 
-### Local vs Global Mode:
-
-- **Local Mode**: Peak-to-peak interactions within specific genomic regions, suitable for targeted interaction detection
-- **Global Mode**: Genome-wide matrix-based processing, suitable for comprehensive interaction mapping
+> **Note:** The package also includes a local mode (`mode = "local"`) for peak-to-peak interaction analysis. The global mode (default) is the method described and benchmarked in the paper.
 
 ## Common Parameters
 
 ### Core Parameters:
 - **outdir**: Output directory path
-- **peaks**: Peak file in BED format (required for both modes)
-- **normSiteFile**: Normalization file generated by `generate_normSite_file()` (required for both modes)
+- **peaks**: Peak file in BED format
+- **normSiteFile**: Normalization file generated by `generate_normSite_file()`
 - **FDR**: False Discovery Rate threshold (default: 0.01)
 - **min_dist**: Minimum interaction distance in bp (default: 20000)
 - **max_dist**: Maximum interaction distance in bp (default: 2000000)
 
-### Local Mode Specific:
-- **resfrags**: Restriction fragments file in BED format
-- **half_length**: Read extension length (default: 73)
-- **no_merge**: Skip anchor merging (default: FALSE)
-- **max_anchor_width**: Maximum anchor width (default: 50000)
-- **peak_pad**: Peak padding in bp (default: 500)
-- **merge_gap**: Merge gap for bedtools merge (default: 500)
-
-### Global Mode Specific:
+### Additional Parameters:
 - **chr_size**: Chromosome sizes file
 - **build_matrix**: Path to build_matrix utility
 - **bin_size**: Genomic bin size for matrix generation (default: 5000)
-
-### Optional Parameters:
 - **nbins**: Number of bins for statistical modeling (default: 10)
 - **keep_temp**: Keep temporary files (default: FALSE)
-- **make_washu**: Create WashU/UCSC compatible files (default: TRUE, local mode only)
 
 ## Output Files
 
@@ -385,18 +300,20 @@ sintHiChIP generates several output files:
 Contains filtered intra-chromosomal interactions with raw PET counts.
 
 ### 2. Significant Interaction Files
-**File**: `*.interaction.[local|global].Q[FDR].txt`
+**File**: `*.interaction.global.Q[FDR].txt`
 
 Contains statistically significant interactions after FDR correction.
 
 ### 3. WashU Genome Browser Tracks
-**File**: `*.interaction.[local|global].Q[FDR].washu.txt.gz`
+**File**: `*.interaction.global.Q[FDR].washu.txt.gz`
 
 Browser-compatible format for visualizing significant interactions.
 
 ## Statistical Methods
 
-sintHiChIP employs statistical modeling with cut site density correction to identify significant chromatin interactions. The package automatically selects the most appropriate statistical model based on data characteristics.
+sintHiChIP identifies significant loops by integrating distance decay with RE cut site density. Starting from HiC-Pro processed contacts and peak regions, the pipeline employs Gaussian kernel smoothing to generate continuous accessibility profiles. These signals inform a spline-based statistical engine that adaptively selects Poisson, binomial, or negative binomial models based on variance-to-mean ratios and data sparsity. Final significance is determined via false discovery rate (FDR) correction.
+
+The genome is divided into a series of non-overlapping bins (5 kb by default), and sintHiChIP models standard P2P interactions (between bins containing peaks) along with P2N interactions (between peak anchors and non-peak anchors), enabling detection of regulatory interactions that involve anchor regions with ChIP signals below peak-calling thresholds.
 
 ## Documentation
 
@@ -404,9 +321,7 @@ For detailed function documentation:
 
 ```r
 ?run_sintHiChIP
-?sintHiChIP_local
 ?sintHiChIP_global
-?sintHiChIP_local_single
 ?sintHiChIP_global_single
 ?generate_normSite_file
 ```
@@ -442,17 +357,17 @@ cat("Normalization file created:", normsite_file, "\n\n")
 cat("Running sintHiChIP analysis for sample1...\n")
 
 run_sintHiChIP(
-  mode = "local",
   outdir = "results/sample1",
   hicpro_output = "hicpro_output",
   sample_name = "sample1",
   peaks = "data/sample1_peaks.bed",
-  resfrags = "data/restriction_fragments.bed",
+  chr_size = "data/chrom_sizes.txt",
+  build_matrix = "/path/to/build_matrix",
   normSiteFile = normsite_file,
+  bin_size = 5000,
   FDR = 0.01,
   min_dist = 20000,
-  max_dist = 2000000,
-  make_washu = TRUE
+  max_dist = 2000000
 )
 
 cat("Analysis completed!\n\n")
@@ -462,7 +377,7 @@ cat("Analysis completed!\n\n")
 # ============================================================================
 
 # Load significant interactions
-sig_file <- "results/sample1/sample1.interaction.local.Q0.01.txt"
+sig_file <- "results/sample1/sample1.interaction.global.Q0.01.txt"
 if (file.exists(sig_file)) {
   sig_interactions <- read.table(sig_file, header = TRUE)
   cat("Found", nrow(sig_interactions), "significant interactions\n")
@@ -480,12 +395,12 @@ for (sample in samples) {
   cat("\nProcessing", sample, "...\n")
   
   run_sintHiChIP(
-    mode = "local",
     outdir = file.path("results", sample),
     hicpro_output = "hicpro_output",
     sample_name = sample,
     peaks = file.path("data", paste0(sample, "_peaks.bed")),
-    resfrags = "data/restriction_fragments.bed",
+    chr_size = "data/chrom_sizes.txt",
+    build_matrix = "/path/to/build_matrix",
     normSiteFile = normsite_file,  # Reuse the same normalization file
     FDR = 0.01
   )
@@ -503,7 +418,6 @@ cat("\nAll samples processed successfully!\n")
 5. **Execute Processing**: Run sintHiChIP with selected function
 6. **Results Interpretation**: Process significant interactions and visualization tracks
 
-
 ## Conclusion
 
-sintHiChIP provides a comprehensive framework for HiChIP data processing through five main functions. The unified interface facilitates both targeted (local) and genome-wide (global) interaction detection while ensuring robust statistical significance testing with cut site density correction.
+sintHiChIP provides a comprehensive framework for HiChIP data processing by modeling restriction enzyme cut site density as a biological signal. The package integrates Gaussian kernel smoothing with adaptive statistical modeling to enable genome-wide detection of significant chromatin interactions, including both peak-to-peak and peak-to-non-peak loops, while ensuring robust statistical significance testing with FDR correction.
