@@ -7,7 +7,7 @@
 #' @param cwd Character string. Current working directory. No default value.
 #' @param outdir Character string. Output directory. No default value.
 #' @param normSiteFile Character string. Normalization site file. Should be a BED format file containing normalization cut site density information. No default value.
-#' @param local Logical. Use local method. Default is TRUE.
+#' @param global Logical. Use global method. Default is TRUE.
 #' @param FDR Numeric. False Discovery Rate. Default is 0.01.
 #' @param nbins Numeric. Number of bins. Default is 10.
 #' 
@@ -48,14 +48,14 @@
 #'   cwd = "/path/to/data", 
 #'   outdir = "/path/to/output",
 #'   normSiteFile = "/path/to/norm.bed",
-#'   local = FALSE,
+#'   global = TRUE,
 #'   FDR = 0.05,
 #'   nbins = 15
 #' )
 #' }
 #'
 #' @export
-sintHiChIP_sigloops <- function(sname, cwd, outdir, normSiteFile, local = TRUE, FDR = 0.01, nbins = 10) {
+sintHiChIP_sigloops <- function(sname, cwd, outdir, normSiteFile, global = TRUE, FDR = 0.01, nbins = 10) {
   
   # ================== Parameter Validation ==================
   if (missing(sname) || is.null(sname) || nchar(sname) == 0) {
@@ -80,9 +80,9 @@ sintHiChIP_sigloops <- function(sname, cwd, outdir, normSiteFile, local = TRUE, 
   if (!file.exists(bedpe_file)) {
     stop("Required BEDPE file not found: ", bedpe_file)
   }
-  if (missing(local) || is.function(local)) {
-    local <- TRUE  
-    cat("Fixed local parameter conflict, set to TRUE\n")
+  if (missing(global) || is.function(global)) {
+    global <- TRUE  
+    cat("Fixed global parameter conflict, set to TRUE\n")
   }
   # Suppress R CMD check notes
   totalAnchorSites_1 <- NULL
@@ -103,7 +103,7 @@ sintHiChIP_sigloops <- function(sname, cwd, outdir, normSiteFile, local = TRUE, 
   mu_safe <- NULL
   lambda <- NULL
   
-  mode <- if(local) "local" else "global"
+  mode <- if(global) "global" else "local"
   
   cat("=== HiChIP loop detection ===\n")
   cat("Sample:", sname, "\n")
@@ -644,4 +644,3 @@ sintHiChIP_sigloops <- function(sname, cwd, outdir, normSiteFile, local = TRUE, 
   
   invisible(NULL)
 }
-
