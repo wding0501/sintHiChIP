@@ -3,7 +3,7 @@
 #' This file provides local mode functions for sintHiChIP.
 #'
 #' @author sintHiChIP Development Team
-
+ 
 #' Run sintHiChIP Local Mode
 #'
 #' This function processes HiC-Pro output in local mode with peak-to-peak interactions.
@@ -78,7 +78,7 @@ sintHiChIP_local <- function(outdir,
     make_washu = make_washu
   )
 }
-
+ 
 #' Run sintHiChIP Local Mode with ValidPairs File
 #'
 #' Processes a single sample in sintHiChIP local mode from valid pairs to filtered loop counts,
@@ -194,7 +194,7 @@ sintHiChIP_local_single <- function(valid_pairs,
     cwd = outdir,
     outdir = outdir,
     normSiteFile = normSiteFile,
-    local = TRUE,
+    global = FALSE,
     FDR = FDR,
     nbins = nbins
   )
