@@ -1,3 +1,11 @@
+---
+title: "sintHiChIP"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sintHiChIP}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
 # sintHiChIP: Accurate and Efficient HiChIP Interaction Detection by Modeling Restriction Enzyme Cut Site Density as Biological Signal
 
 ## Introduction
