@@ -1,14 +1,16 @@
 Package: sintHiChIP
-Title: Accurate HiChIP Interaction Detection Through RE Cut Site Density Modeling
+Title: Accurate and Efficient HiChIP Interaction Detection by Modeling
+    Restriction Enzyme Cut Site Density as Biological Signal
 Version: 1.1.0
 Authors@R: 
     person("Weiyue", "Ding", , "wyding0501@hotmail.com", role = c("aut", "cre"))
 Description: sintHiChIP detects significant chromatin interactions in HiChIP data 
     by modeling restriction enzyme cut site density as biological signal. 
-    Implements dual-mode analysis (local: peak-to-peak; global: genome-wide) 
-    with adaptive statistical modeling. Features HiC-Pro integration, numerical 
-    stability, and WashU Browser track generation.
-License: GPL-3
+    Implements genome-wide bin-based analysis with adaptive statistical modeling 
+    (binomial, negative binomial, or Poisson). Features HiC-Pro integration, 
+    peak-to-peak and peak-to-non-peak interaction detection, numerical stability, 
+    and WashU Browser track generation.
+License: GPL-3 + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.0.0)
 Imports: GenomeInfoDb, GenomicRanges, IRanges, Rcpp, S4Vectors,
@@ -17,7 +19,7 @@ Imports: GenomeInfoDb, GenomicRanges, IRanges, Rcpp, S4Vectors,
 SystemRequirements: bedtools (>= 2.29.0), tabix (>= 1.10), 
                     bgzip (>= 1.10), HiC-Pro (>= 3.1.0)
 LinkingTo: Rcpp
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Suggests: testthat, knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: yes
