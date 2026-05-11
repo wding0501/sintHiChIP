@@ -9,7 +9,7 @@ sintHiChIP_sigloops(
   cwd,
   outdir,
   normSiteFile,
-  local = TRUE,
+  global = TRUE,
   FDR = 0.01,
   nbins = 10
 )
@@ -23,7 +23,7 @@ sintHiChIP_sigloops(
 
 \item{normSiteFile}{Character string. Normalization site file. Should be a BED format file containing normalization cut site density information. No default value.}
 
-\item{local}{Logical. Use local method. Default is TRUE.}
+\item{global}{Logical. Use global method. Default is TRUE.}
 
 \item{FDR}{Numeric. False Discovery Rate. Default is 0.01.}
 
@@ -63,7 +63,7 @@ sintHiChIP_sigloops(
   cwd = "/path/to/data", 
   outdir = "/path/to/output",
   normSiteFile = "/path/to/norm.bed",
-  local = FALSE,
+  global = TRUE,
   FDR = 0.05,
   nbins = 15
 )
