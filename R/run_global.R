@@ -3,7 +3,7 @@
 #' This file provides global mode functions for sintHiChIP.
 #'
 #' @author sintHiChIP Development Team
-
+ 
 #' Run sintHiChIP Global Mode
 #'
 #' This function processes HiC-Pro output in global mode with peak-to-all interactions.
@@ -64,7 +64,7 @@ sintHiChIP_global <- function(outdir,
     keep_temp = keep_temp
   )
 }
-
+ 
 #' Run sintHiChIP Global Mode with ValidPairs File
 #'
 #' Processes a single sample in sintHiChIP global mode from valid pairs to filtered interactions,
@@ -166,7 +166,7 @@ sintHiChIP_global_single <- function(valid_pairs,
     cwd = outdir,
     outdir = outdir,
     normSiteFile = normSiteFile,
-    local = FALSE,  # Global mode flag
+    global = TRUE,  # Global mode flag
     FDR = FDR,
     nbins = nbins
   )
