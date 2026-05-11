@@ -3,7 +3,7 @@
 #' Main entry point for sintHiChIP processing, supporting both Local and Global modes.
 #' This function properly delegates to the specialized functions with unified parameter handling.
 #'
-#' @param mode Character string. Processing mode: "local" or "global"
+#' @param mode Character string. Processing mode: "local" or "global" (default: "global")
 #' @param outdir Character string. Output directory for results
 #' @param hicpro_output Character string. Path to HiC-Pro output directory (contains allValidPairs)
 #' @param sample_name Character string. Sample identifier for file naming (optional, will auto-detect if NULL)
@@ -54,7 +54,7 @@
 #' }
 #' 
 #' @export
-run_sintHiChIP <- function(mode,
+run_sintHiChIP <- function(mode = "global",
                            outdir,
                            hicpro_output = NULL,
                            sample_name = NULL,
