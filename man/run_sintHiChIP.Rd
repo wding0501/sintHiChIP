@@ -5,7 +5,7 @@
 \title{Main sintHiChIP Pipeline}
 \usage{
 run_sintHiChIP(
-  mode,
+  mode = "global",
   outdir,
   hicpro_output = NULL,
   sample_name = NULL,
@@ -29,7 +29,7 @@ run_sintHiChIP(
 )
 }
 \arguments{
-\item{mode}{Character string. Processing mode: "local" or "global"}
+\item{mode}{Character string. Processing mode: "local" or "global" (default: "global")}
 
 \item{outdir}{Character string. Output directory for results}
 
