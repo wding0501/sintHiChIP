@@ -271,7 +271,7 @@ sintHiChIP_global_single(
 - **sintHiChIP_global()**: When you have standard HiC-Pro output structure
 - **sintHiChIP_global_single()**: When you want to specify exact allValidPairs file paths or have non-standard directory structures
 
-> **Note:** The package also includes a local mode (`mode = "local"`) for peak-to-peak interaction analysis. The global mode (default) is the method described and benchmarked in the paper.
+> **Note:** The package also includes a local mode (`mode = "local"`) for interaction analysis between merged peak-derived anchors. The global mode (default) uses genome-wide fixed-size bins and is the method described and benchmarked in the paper.
 
 ## Common Parameters
 
